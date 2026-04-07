@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pact-broker
+  labels:
+    app: pact-broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pact-broker
+  template:
+    metadata:
+      labels:
+        app: pact-broker
+    spec:
+      containers:
+        - name: pact-broker
+          image: pactfoundation/pact-broker:2.102.2.0
+          ports:
+            - containerPort: 9292
+          env:
+            - name: PACT_BROKER_DATABASE_ADAPTER
+              value: "postgres"
+            - name: PACT_BROKER_DATABASE_HOST
+              value: "postgres"
+            - name: PACT_BROKER_DATABASE_PORT
+              value: "5432"
+            - name: PACT_BROKER_DATABASE_NAME
+              value: "pact-broker"
+            - name: PACT_BROKER_DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: PACT_BROKER_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: PACT_BROKER_PUBLIC_HEARTBEAT
+              value: "true"
+            - name: PACT_BROKER_LOG_LEVEL
+              value: "INFO"
+            - name: PACT_BROKER_BASE_URL
+              value: "http://localhost:30080"
+            - name: PACT_BROKER_BASIC_AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: PACT_BROKER_AUTH_USERNAME
+            - name: PACT_BROKER_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: PACT_BROKER_AUTH_PASSWORD
+            - name: PACT_BROKER_BASIC_AUTH_READ_ONLY_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: PACT_BROKER_AUTH_RO_USERNAME
+            - name: PACT_BROKER_BASIC_AUTH_READ_ONLY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: PACT_BROKER_AUTH_RO_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /diagnostic/status/heartbeat
+              port: 9292
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /diagnostic/status/heartbeat
+              port: 9292
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pact-broker-svc
+  labels:
+    app: pact-broker
+spec:
+  type: NodePort
+  selector:
+    app: pact-broker
+  ports:
+    - port: 9292
+      targetPort: 9292
+      nodePort: 30080
