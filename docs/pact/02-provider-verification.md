@@ -94,22 +94,25 @@ See the [official Pact JS provider docs](https://docs.pact.io/implementation_gui
 
 ### 3. Implement State Handlers
 
-Consumers define provider states (e.g. "a user exists with id 123"). The provider must set up the corresponding data:
+Consumers define provider states (e.g. "a user exists with id 123"). The provider must set up the corresponding data. State handlers are passed as part of the Verifier options:
 
 ```typescript
-stateHandlers: {
-  'a user exists with id 123': () => {
-    // set up test data or stub dependencies
-    return Promise.resolve()
+const verifier = new Verifier({
+  // ...other options from above
+  stateHandlers: {
+    'a user exists with id 123': () => {
+      // set up test data or stub dependencies
+      return Promise.resolve()
+    },
+    'no users exist': () => {
+      // clear data or configure empty responses
+      return Promise.resolve()
+    },
   },
-  'no users exist': () => {
-    // clear data or configure empty responses
-    return Promise.resolve()
-  },
-}
+})
 ```
 
-State handlers are where you stub external dependencies or seed test data so the provider can return the expected response.
+State handlers are where you stub external dependencies or seed test data so the provider can return the expected response. See the [official state handler docs](https://docs.pact.io/implementation_guides/javascript/docs/provider#api-with-provider-states) for more details.
 
 ## Test Configuration
 
@@ -120,8 +123,7 @@ Keep pact tests in their own config with a dedicated test pattern:
 ```javascript
 // jest.pact.config.js
 module.exports = {
-  testRegex: '/*(pact.spec.ts)',
-  watchPathIgnorePatterns: ['pact/logs/*', 'pact/pacts/*'],
+  testMatch: ['**/*.pact.spec.ts'],
   testTimeout: 30000,
 }
 ```
@@ -132,9 +134,8 @@ Or with Vitest:
 // vitest.pact.config.mts
 export default {
   test: {
-    include: ['**/pact/**/*.spec.ts'],
+    include: ['**/*.pact.spec.ts'],
     testTimeout: 30000,
-    coverage: undefined, // disable coverage for pact tests
   },
 }
 ```
