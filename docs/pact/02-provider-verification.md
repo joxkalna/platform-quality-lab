@@ -54,30 +54,43 @@ The key point: use your real handler code, not mocks. The whole purpose is to ve
 
 ### 2. Configure the Verifier
 
+Using the official [`@pact-foundation/pact`](https://github.com/pact-foundation/pact-js) library:
+
 ```typescript
-await verifyProvider({
+import { Verifier } from '@pact-foundation/pact'
+
+const verifier = new Verifier({
   provider: '<provider-name>',
-  providerUrl: 'http://localhost:8000',
-  branch: '<git-branch>',
-  version: '<git-short-sha>',
-  pipelineExecution: process.env.CI === 'true',
-  pactUrl: process.env.PACT_URL,              // set by webhook trigger
-  workInProgressPactsSince: '2022-08-01',
-  authentication: {
-    username: process.env.PACT_BROKER_USERNAME,
-    password: process.env.PACT_BROKER_PASSWORD,
-  },
+  providerBaseUrl: 'http://localhost:8000',
+  pactBrokerUrl: process.env.PACT_BROKER_URL,
+  pactBrokerUsername: process.env.PACT_BROKER_USERNAME,
+  pactBrokerPassword: process.env.PACT_BROKER_PASSWORD,
+  publishVerificationResult: process.env.CI === 'true',
+  providerVersion: '<git-short-sha>',
+  providerVersionBranch: '<git-branch>',
+  consumerVersionSelectors: [
+    { mainBranch: true },
+    { deployedOrReleased: true },
+  ],
+  enablePending: true,
+  includeWipPactsSince: '2022-08-01',
   logLevel: 'warn',
 })
+
+await verifier.verifyProvider()
 ```
 
 Key configuration:
 - `provider` — must match the name registered in the Broker
-- `providerUrl` — where your local server is running
-- `version` — always use the git short SHA
-- `branch` — the current branch name
-- `pactUrl` — when triggered by a webhook, this points to the specific pact to verify
-- `workInProgressPactsSince` — includes unverified pacts from feature branches (WIP pacts)
+- `providerBaseUrl` — where your local server is running
+- `providerVersion` — always use the git short SHA
+- `providerVersionBranch` — the current branch name
+- `publishVerificationResult` — only publish from CI, never locally
+- `consumerVersionSelectors` — which consumer pacts to verify (main branch + deployed/released versions)
+- `enablePending` — new pacts don't break the provider build until verified once
+- `includeWipPactsSince` — includes unverified pacts from consumer feature branches (WIP pacts)
+
+See the [official Pact JS provider docs](https://docs.pact.io/implementation_guides/javascript/docs/provider) for the full API.
 
 ### 3. Implement State Handlers
 
@@ -136,8 +149,8 @@ import { execSync } from 'child_process'
 
 if (process.env.CI !== 'true') {
   process.env.CI = 'false'
-  process.env.CI_COMMIT_BRANCH = execSync('git rev-parse --abbrev-ref HEAD').toString().trim()
-  process.env.CI_COMMIT_SHORT_SHA = execSync('git rev-parse --short HEAD').toString().trim()
+  process.env.GIT_BRANCH = execSync('git rev-parse --abbrev-ref HEAD').toString().trim()
+  process.env.GIT_SHORT_SHA = execSync('git rev-parse --short HEAD').toString().trim()
   process.env.PACT_BROKER_USERNAME = ''
   process.env.PACT_BROKER_PASSWORD = ''
 }
@@ -164,7 +177,7 @@ can_deploy:
   script:
     - pact-broker can-i-deploy
         --pacticipant <provider-name>
-        --version $CI_COMMIT_SHORT_SHA
+        --version $GIT_SHORT_SHA
         --to-environment <target-environment>
         --broker-base-url $PACT_BROKER_URL
         --broker-username $PACT_BROKER_USERNAME
@@ -180,7 +193,7 @@ After a successful deploy, record it so the Broker knows what's running where:
 ```bash
 pact-broker record-deployment \
   --pacticipant <provider-name> \
-  --version $CI_COMMIT_SHORT_SHA \
+  --version $GIT_SHORT_SHA \
   --environment <environment> \
   --broker-base-url $PACT_BROKER_URL \
   --broker-username $PACT_BROKER_USERNAME \
