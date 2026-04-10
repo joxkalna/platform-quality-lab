@@ -93,3 +93,13 @@ jobs:
 
       - name: Validate K8s manifests
         run: kubeconform -strict -summary k8s/
+
+  build-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker images
+        run: |
+          docker build -t service-a:ci services/service-a
+          docker build -t service-b:ci services/service-b
