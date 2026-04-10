@@ -9,6 +9,7 @@ on:
 env:
   NODE_VERSION: 24
   KUBECONFORM_VERSION: 0.6.7
+  KIND_VERSION: v0.27.0
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -94,12 +95,71 @@ jobs:
       - name: Validate K8s manifests
         run: kubeconform -strict -summary k8s/
 
-  build-images:
+  # Single job: Kind cluster can't persist across jobs (each job = fresh runner)
+  # Steps are ordered: deploy → infra tests → integration tests
+  deploy-and-test:
+    needs: [lint, typecheck, validate-k8s]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore node_modules
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            services/service-a/node_modules
+            services/service-b/node_modules
+          key: deps-${{ hashFiles('**/package-lock.json') }}
+
+      # --- Deploy ---
+
+      - name: Install Kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${{ env.KIND_VERSION }}/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Create Kind cluster
+        run: kind create cluster --name platform-lab --config kind-config.yaml
+
       - name: Build Docker images
         run: |
-          docker build -t service-a:ci services/service-a
-          docker build -t service-b:ci services/service-b
+          docker build -t service-a:latest services/service-a
+          docker build -t service-b:latest services/service-b
+
+      - name: Load images into Kind
+        run: |
+          kind load docker-image service-a:latest --name platform-lab
+          kind load docker-image service-b:latest --name platform-lab
+
+      - name: Deploy to Kind
+        run: |
+          kubectl apply -f k8s/service-b.yaml
+          kubectl apply -f k8s/service-a.yaml
+          kubectl rollout status deployment/service-b --timeout=60s
+          kubectl rollout status deployment/service-a --timeout=60s
+
+      # --- Infrastructure tests (BATS) ---
+
+      - name: Install BATS
+        run: |
+          sudo apt-get update && sudo apt-get install -y bats
+
+      - name: Run infrastructure tests
+        run: npm run test:infra
+
+      # --- Integration tests (Vitest) ---
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      # --- Teardown ---
+
+      - name: Delete Kind cluster
+        if: always()
+        run: kind delete cluster --name platform-lab

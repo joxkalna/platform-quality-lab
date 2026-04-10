@@ -1,7 +1,10 @@
 # Platform Quality Lab — Project Rules
 
 ## Project Purpose
-This is a personal learning project for SDET/platform quality engineering skills, mapped to an AI infrustructure-style role. The goal is to build a minimal microservices system, deploy it on Kubernetes, break it intentionally, and encode learnings into CI guardrails.
+This is a learning project for SDET/platform quality engineering skills, mapped to an AI infrastructure-style role. The goal is to build a microservices system, deploy it on Kubernetes, break it intentionally, and encode learnings into CI guardrails.
+
+## Project Mindset
+Treat this project as if it's a real service running in a large organisation. Use production-grade tooling, patterns, and practices — even if the services themselves are simple. The services are intentionally trivial because the focus is on the platform, pipeline, and quality engineering around them — not the business logic. Never dismiss a tool or pattern as "overkill" — if it's used in real orgs, it belongs here.
 
 ## Tech Stack
 - Language: TypeScript / Node.js (Express)
@@ -23,8 +26,8 @@ This is a personal learning project for SDET/platform quality engineering skills
 - **Phase 5** Guardrails — CI gates per failure, guardrail table, Slack notifications, dashboard
 
 ## Coding Style
-- Minimal code — only what's needed, no over-engineering
-- Keep services simple Express apps, no frameworks on top
+- Clean, production-style code — use real tools and patterns as large orgs would
+- Keep services simple Express apps — the services are simple on purpose, the infrastructure around them is not
 - K8s manifests should always include: resource limits, readiness probes, liveness probes
 - Dockerfiles: multi-stage, alpine base, non-root user
 - No privileged containers
