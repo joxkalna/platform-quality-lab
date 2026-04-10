@@ -6,9 +6,21 @@
     "dev:a": "cd services/service-a && npx ts-node src/index.ts",
     "dev:b": "cd services/service-b && npx ts-node src/index.ts",
     "open": "sleep 3 && open http://localhost:3000/data",
-    "stop": "lsof -ti:3000,3001 | xargs kill -9 2>/dev/null; echo 'stopped'"
+    "stop": "lsof -ti:3000,3001 | xargs kill -9 2>/dev/null; echo 'stopped'",
+    "k8s:up": "./scripts/deploy-local.sh",
+    "k8s:down": "kind delete cluster --name platform-lab && docker image rm registry.k8s.io/metrics-server/metrics-server:v0.8.1 2>/dev/null; echo 'cluster deleted'",
+    "lint": "eslint services/*/src/**/*.ts",
+    "typecheck:a": "cd services/service-a && npx tsc --noEmit",
+    "typecheck:b": "cd services/service-b && npx tsc --noEmit",
+    "test:integration": "vitest run --config tests/integration/vitest.config.mts",
+    "test:infra": "bats tests/infrastructure/"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@eslint/js": "^9.39.4",
+    "axios": "1.15.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^9.39.4",
+    "typescript-eslint": "^8.58.1",
+    "vitest": "^4.1.4"
   }
 }

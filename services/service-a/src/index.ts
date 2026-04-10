@@ -13,7 +13,7 @@ app.get("/data", async (_req, res) => {
     const response = await fetch(`${SERVICE_B_URL}/info`);
     const data = await response.json();
     res.json({ source: "service-a", downstream: data });
-  } catch (err) {
+  } catch {
     res.status(502).json({ error: "Failed to reach service-b" });
   }
 });
