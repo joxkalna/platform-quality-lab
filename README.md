@@ -12,6 +12,8 @@ platform-quality-lab/
 ├── k8s/
 │   ├── service-a.yaml      # Deployment + Service (2 replicas, probes, resource limits)
 │   └── service-b.yaml      # Deployment + Service (2 replicas, probes, resource limits)
+├── scripts/
+│   └── deploy-local.sh     # Full local Kind deploy (create, build, load, deploy, verify)
 ├── kind-config.yaml         # Kind cluster: 1 control-plane + 2 workers
 └── .github/workflows/       # CI — coming in Phase 3
 ```
@@ -30,6 +32,16 @@ npm run dev
 npm run stop
 ```
 
+### Kubernetes (Kind)
+
+```bash
+# Full deploy (create cluster, build images, deploy, verify)
+./scripts/deploy-local.sh
+
+# Tear down
+kind delete cluster --name platform-lab
+```
+
 ## Endpoints
 
 | Service   | Endpoint  | Description                        |
@@ -42,7 +54,7 @@ npm run stop
 ## Progress
 
 - [x] Phase 1: Scaffold — services, Dockerfiles, K8s manifests, Kind config
-- [ ] Phase 2: Local Kind cluster + deploy + verify service-to-service comms
+- [x] Phase 2: Local Kind cluster + deploy + verify service-to-service comms
 - [ ] Phase 3: CI pipeline (lint, config validation, contract checks, integration tests)
 - [ ] Phase 4: Failure injection (pod kills, resource pressure, latency)
 - [ ] Phase 5: Encode learnings into CI guardrails

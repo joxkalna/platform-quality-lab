@@ -17,6 +17,7 @@ spec:
       containers:
         - name: service-a
           image: service-a:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 3000
           env:

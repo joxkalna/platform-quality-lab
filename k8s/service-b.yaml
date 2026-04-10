@@ -17,6 +17,7 @@ spec:
       containers:
         - name: service-b
           image: service-b:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 3001
           readinessProbe:
