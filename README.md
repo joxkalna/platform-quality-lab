@@ -12,10 +12,14 @@ platform-quality-lab/
 ├── k8s/
 │   ├── service-a.yaml      # Deployment + Service (2 replicas, probes, resource limits)
 │   └── service-b.yaml      # Deployment + Service (2 replicas, probes, resource limits)
+├── tests/
+│   ├── infrastructure/     # BATS — K8s deploy verification (pods, DNS, connectivity)
+│   └── integration/        # Vitest + axios — service endpoint tests (HTTP assertions)
 ├── scripts/
-│   └── deploy-local.sh     # Full local Kind deploy (create, build, load, deploy, verify)
+│   └── deploy-local.sh     # Full local Kind deploy (create, build, load, deploy)
 ├── kind-config.yaml         # Kind cluster: 1 control-plane + 2 workers
-└── .github/workflows/       # CI — coming in Phase 3
+└── .github/workflows/
+    └── ci.yml              # CI pipeline (lint, typecheck, K8s validate, deploy, test)
 ```
 
 ## Quick Start
@@ -42,6 +46,18 @@ npm run stop
 kind delete cluster --name platform-lab
 ```
 
+### Testing
+
+```bash
+# Service integration tests (auto-detects local services or Kind cluster)
+npm run test:integration
+
+# K8s infrastructure tests (needs Kind cluster)
+npm run test:infra
+```
+
+See [TESTING.md](TESTING.md) for full testing strategy.
+
 ## Endpoints
 
 | Service   | Endpoint  | Description                        |
@@ -51,10 +67,26 @@ kind delete cluster --name platform-lab
 | Service B | `/health` | Health check                       |
 | Service B | `/info`   | Returns service data               |
 
+## CI Pipeline
+
+```
+install → lint ──────────┐
+        → typecheck ─────┤
+        → validate-k8s ──┴→ deploy-and-test
+                              ├── Create Kind cluster
+                              ├── Build + load images
+                              ├── Deploy manifests
+                              ├── BATS infra tests
+                              ├── Vitest integration tests
+                              └── Teardown (always)
+```
+
+Static checks (lint, typecheck, K8s validation) run in parallel. Deploy + test runs as a single job because the Kind cluster can't persist across GitHub Actions jobs.
+
 ## Progress
 
 - [x] Phase 1: Scaffold — services, Dockerfiles, K8s manifests, Kind config
 - [x] Phase 2: Local Kind cluster + deploy + verify service-to-service comms
-- [ ] Phase 3: CI pipeline (lint, config validation, contract checks, integration tests)
+- [x] Phase 3: CI pipeline (lint, config validation, integration tests)
 - [ ] Phase 4: Failure injection (pod kills, resource pressure, latency)
 - [ ] Phase 5: Encode learnings into CI guardrails
