@@ -24,6 +24,8 @@ Treat this project as if it's a real service running in a large organisation. Us
 - **Phase 3** CI pipeline — GitHub Actions (lint, config validation, contract checks, integration tests)
 - **Phase 4** Failure injection — pod kills, resource pressure, latency injection, observation scripts
 - **Phase 5** Guardrails — CI gates per failure, guardrail table, Slack notifications, dashboard
+- **Phase 6** AI service — add a new service wrapping an LLM API, deploy to Kind, wire into service mesh
+- **Phase 7** AI quality guardrails — non-deterministic assertion patterns, golden set benchmarks, accuracy thresholds as CI gates, consistency tests
 
 ## Coding Style
 - Clean, production-style code — use real tools and patterns as large orgs would
@@ -38,6 +40,11 @@ Treat this project as if it's a real service running in a large organisation. Us
 - `./scripts/deploy-local.sh` — full local Kind deploy (create cluster, build, load, deploy, verify)
 - `kind delete cluster --name platform-lab` — tear down local cluster
 
+## Chaos / Failure Injection Commands
+Prerequisites: Docker running + Kind cluster deployed (`./scripts/deploy-local.sh`)
+- `./scripts/chaos/pod-kill.sh <service>` — kill a pod, verify service stays up and K8s self-heals
+- `./scripts/chaos/resource-pressure.sh <service> <cpu|mem|all>` — inject CPU/memory stress via sidecar, observe throttling and OOMKills
+
 ## Key Decisions
 - 2 replicas per service in K8s — enables testing rolling restarts and availability
 - Resource limits intentionally tight (50m/64Mi req, 200m/128Mi limit) — to trigger pressure in Phase 4
@@ -45,7 +52,17 @@ Treat this project as if it's a real service running in a large organisation. Us
 - `imagePullPolicy: Never` in manifests — Kind uses pre-loaded images, not a registry
 - metrics-server installed with `--kubelet-insecure-tls` flag (required for Kind, no real TLS between nodes)
 - Deploy order: Service B first, then A — A depends on B for `/data` endpoint
-- VPN blocks image pulls inside Kind nodes — workaround: `docker pull` locally then `kind load`
+- VPN blocks GitHub downloads and image pulls inside Kind nodes — workaround: bundle manifests locally (`k8s/vendor/`), `docker pull` on host then `kind load` into cluster
+- metrics-server manifest bundled at `k8s/vendor/metrics-server.yaml` with `--kubelet-insecure-tls` baked in — no network dependency at deploy time
+- `--kubelet-insecure-tls` is safe in Kind — it only skips TLS between fake nodes inside Docker's internal network, never touches the real network. Required because Kind nodes don't have real TLS certs
+- `imagePullPolicy: Never` is safe in Kind — images are pre-loaded via `kind load`, no registry involved. In a real cluster (EKS/GKE) you'd use a container registry instead
+
+## Phase 4 Chaos Experiments
+All chaos scripts live in `scripts/chaos/`. They require a running Kind cluster with services deployed.
+- **Pod Kill** (`pod-kill.sh`) — deletes a pod, asserts service stays reachable via surviving replica, waits for K8s to restore full replica count
+- **Resource Pressure** (`resource-pressure.sh`) — injects a stress-ng sidecar into the pod (no production code changes), tests CPU throttling and OOMKill behaviour
+
+See [CHAOS.md](CHAOS.md) for full experiment log, learnings, and Phase 5 guardrail implications.
 
 ## Phase 2 Resource Baseline
 - Idle CPU: 1-13m per pod (limit: 200m)
