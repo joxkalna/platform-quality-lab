@@ -30,9 +30,9 @@ if kubectl get deployment metrics-server -n kube-system &>/dev/null; then
   echo "✓ metrics-server already installed"
 else
   echo "→ Installing metrics-server..."
-  kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-  kubectl patch deployment metrics-server -n kube-system --type='json' \
-    -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
+  docker pull registry.k8s.io/metrics-server/metrics-server:v0.7.2
+  kind load docker-image registry.k8s.io/metrics-server/metrics-server:v0.7.2 --name "$CLUSTER_NAME"
+  kubectl apply -f "$ROOT_DIR/k8s/vendor/metrics-server.yaml"
 fi
 
 # 3. Build images
