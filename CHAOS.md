@@ -111,6 +111,40 @@ The service code should never know it's being tested. If you need to change the 
 
 ---
 
+## Step 3: Dependency Failure
+
+**Script:** `scripts/chaos/dependency-failure.sh [upstream] [downstream]`
+
+**What we did:**
+Scaled Service B to 0 replicas, observed how Service A behaved with its dependency completely gone.
+
+**What we observed:**
+- `/health` (liveness) still returned ok — correct, it has no dependency on Service B
+- `/data` returned 502 with a clear error — graceful degradation, not a hang or crash
+- Readiness probe (`/ready`) failed → K8s removed Service A from the load balancer (0 endpoints)
+- Zero restarts — Service A didn't crash
+- When Service B was restored, Service A recovered automatically — `/data` worked again, readiness passed, endpoints repopulated
+
+**Bugs found during the experiment:**
+
+1. **No timeout on `/data` fetch.** The original code did `fetch(SERVICE_B_URL/info)` with no timeout. When Service B's pods were gone, the TCP connection hung instead of failing. The `catch` block never fired because the request never completed — it just waited forever. Fixed by adding `AbortSignal.timeout(3000)`.
+
+2. **No separate readiness endpoint.** Originally both liveness and readiness probes used `/health`, which didn't check dependencies. This meant K8s kept sending traffic to Service A even when it couldn't serve `/data`. Fixed by adding `/ready` that checks Service B reachability with a 2s timeout.
+
+**Key learnings:**
+
+- **Timeouts on all outbound calls.** Without them, a downstream outage causes your service to hang, eat connections, and eventually cascade-fail. This is the #1 production issue with microservices.
+- **Liveness ≠ Readiness.** Liveness = "is the process alive?" (simple, no dependencies). Readiness = "can this pod serve traffic?" (checks dependencies). Mixing them up causes either: K8s kills healthy pods (liveness checks dependency, dependency blips → pod killed), or K8s sends traffic to broken pods (readiness doesn't check dependency).
+- **K8s DNS still resolves even with 0 pods.** The Service object exists, DNS resolves, but there's nothing behind it. The connection hangs at TCP level — it doesn't get a "connection refused". This is why timeouts matter.
+
+**What this implies for Phase 5 (CI guardrails):**
+- Services with downstream dependencies must have a separate readiness endpoint that checks those dependencies
+- Readiness probe must not use the same endpoint as liveness probe (if the service has dependencies)
+- All outbound HTTP calls must have timeouts — lint or review gate
+- Post-deploy: dependency failure test — kill downstream, assert upstream degrades gracefully and is removed from load balancer
+
+---
+
 ## "K8s Handles It, Why Do We Care?"
 
 K8s handles the *recovery*, not the *impact*. Yes, the pod comes back. But during the OOMKill:
@@ -147,6 +181,9 @@ The chaos experiments aren't the end goal — they're how you discover what guar
 | Post-deploy: zero OOMKills in pod events | Catches bad deployments that immediately OOMKill | BATS test: check pod events for OOMKilled after deploy |
 | Post-deploy: zero CrashLoopBackOff | Catches pods that can't stay alive | BATS test: assert no pods in CrashLoopBackOff state |
 | Post-deploy: pod kill resilience | Proves the service survives a pod death | Run pod-kill.sh as a CI step after deploy |
+| Readiness probe must check dependencies | Prevents traffic to pods that can't serve requests | Manifest validation: readiness ≠ liveness path for services with dependencies |
+| All outbound HTTP calls must have timeouts | Prevents hanging when downstream is unreachable | Code review / lint rule |
+| Post-deploy: dependency failure test | Proves upstream degrades gracefully when downstream dies | Run dependency-failure.sh as a CI step after deploy |
 
 ---
 
@@ -155,6 +192,7 @@ The chaos experiments aren't the end goal — they're how you discover what guar
 **Completed:**
 - [x] Step 1: Pod kill — resilience to pod deletion
 - [x] Step 2: Resource pressure — CPU throttling + OOMKill via sidecar injection
+- [x] Step 3: Dependency failure — kill Service B, observe Service A degradation + recovery
 
 **Next up:**
 - [ ] Step 3: Dependency failure — kill Service B, observe how Service A degrades

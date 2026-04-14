@@ -112,7 +112,7 @@ Static checks (lint, typecheck, K8s validation) run in parallel. Deploy + test r
 - [ ] Phase 4: Failure injection (pod kills, resource pressure, latency)
   - [x] Step 1: Pod kill — resilience to pod deletion
   - [x] Step 2: Resource pressure — CPU throttling + OOMKill (sidecar approach)
-  - [ ] Step 3: Dependency failure — kill Service B, observe Service A
+  - [x] Step 3: Dependency failure — kill Service B, observe Service A
   - [ ] Step 4: Latency injection — slow downstream, observe upstream
 - [ ] Phase 5: Encode learnings into CI guardrails
 - [ ] Phase 6: AI service — add an LLM-powered service to the platform
