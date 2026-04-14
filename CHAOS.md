@@ -184,6 +184,8 @@ The chaos experiments aren't the end goal — they're how you discover what guar
 | Readiness probe must check dependencies | Prevents traffic to pods that can't serve requests | Manifest validation: readiness ≠ liveness path for services with dependencies |
 | All outbound HTTP calls must have timeouts | Prevents hanging when downstream is unreachable | Code review / lint rule |
 | Post-deploy: dependency failure test | Proves upstream degrades gracefully when downstream dies | Run dependency-failure.sh as a CI step after deploy |
+| Response time thresholds | Catches performance regressions from code changes | Integration tests: assert endpoint response times < threshold |
+| All outbound calls must have timeouts | Prevents hanging on slow or dead dependencies | Code review / lint rule |
 
 ---
 
@@ -195,9 +197,54 @@ The chaos experiments aren't the end goal — they're how you discover what guar
 - [x] Step 3: Dependency failure — kill Service B, observe Service A degradation + recovery
 
 **Next up:**
-- [ ] Step 3: Dependency failure — kill Service B, observe how Service A degrades
-- [ ] Step 4: Latency injection — slow down Service B, observe Service A's behaviour
+- [x] Step 4: Latency injection — slow down Service B, observe Service A's behaviour
 - [ ] Step 5: Observation script — capture pod state, events, restarts, resource usage after any failure
+
+---
+
+## Step 4: Latency Injection
+
+**Script:** `scripts/chaos/latency-injection.sh`
+
+**What we did:**
+Deployed a standalone slow server, pointed Service A at it via env var patch, tested two scenarios:
+- 2s delay (under Service A's 3s timeout) → should get data
+- 5s delay (over Service A's 3s timeout) → should get 502
+
+**What we observed:**
+- Scenario 1 (2s): Service A waited and got data back — timeout didn't fire (correct)
+- Scenario 2 (5s): Service A timed out at 3s and returned 502 — timeout fired (correct)
+- Service A didn't crash or hang in either scenario
+
+**Approaches we tried and why:**
+
+| Approach | Problem |
+|---|---|
+| Replace Service B with a slow fake pod (same label) | Fragile — had to mirror /health, /info, correct port, readiness behaviour. Every missing detail caused a test setup failure, not a real failure |
+| Standalone slow server + env var patch | Worked — clean separation, no interference with real Service B |
+
+**How real orgs do latency injection:**
+
+| Approach | How it works | When to use |
+|---|---|---|
+| Service mesh (Istio/Linkerd) | Inject delay rules between services at network level | Production-grade, no code/config changes to services |
+| Chaos tooling (Chaos Mesh, Litmus, AWS FIS) | Manipulate Linux `tc` on the node to add packet delay | Infrastructure-level, works on any service |
+| Toxiproxy / Docker Compose | Proxy between services with configurable latency | CI environments, local testing |
+| Env var patch (what we did) | Point upstream at a slow server | Learning, quick experiments |
+
+**Key learnings:**
+
+1. **Timeouts are the only defence against slow dependencies.** Without the 3s timeout on `/data`, Service A would have waited forever for the 5s response — same as Step 3 (dependency failure). Slow and dead look the same to a service without timeouts.
+
+2. **The timeout value matters.** 3s is a choice — too low and you get false 502s on normal slow responses, too high and users wait too long. In production this would be tuned based on baseline response times and SLAs.
+
+3. **Latency is harder to detect than failure.** A dead service gives you an immediate error. A slow service gives you... waiting. Users experience degradation, connections pile up, and eventually the upstream runs out of resources. This is why latency injection is a separate experiment from dependency failure.
+
+**What this implies for Phase 5 (CI guardrails):**
+- Performance baseline: measure normal response times for each endpoint, assert they stay within bounds
+- All outbound HTTP calls must have timeouts (reinforces Step 3 finding)
+- CI gate: response time assertions in integration tests (e.g. `/health` < 100ms, `/data` < 500ms)
+- Future: Docker Compose environment with toxiproxy for realistic latency testing in CI
 
 After all steps are done, move to Phase 5: encode the guardrails table above into CI gates.
 
@@ -216,4 +263,10 @@ Prerequisites: Docker running + Kind cluster deployed (`./scripts/deploy-local.s
 ./scripts/chaos/resource-pressure.sh service-a cpu
 ./scripts/chaos/resource-pressure.sh service-a mem
 ./scripts/chaos/resource-pressure.sh service-a all
+
+# Dependency failure
+./scripts/chaos/dependency-failure.sh
+
+# Latency injection
+./scripts/chaos/latency-injection.sh
 ```
