@@ -11,12 +11,19 @@ platform-quality-lab/
 │   └── service-b/          # Express app (port 3001) → returns data
 ├── k8s/
 │   ├── service-a.yaml      # Deployment + Service (2 replicas, probes, resource limits)
-│   └── service-b.yaml      # Deployment + Service (2 replicas, probes, resource limits)
+│   ├── service-b.yaml      # Deployment + Service (2 replicas, probes, resource limits)
+│   └── vendor/
+│       └── metrics-server.yaml  # Bundled metrics-server (avoids GitHub download at deploy)
 ├── tests/
 │   ├── infrastructure/     # BATS — K8s deploy verification (pods, DNS, connectivity)
 │   └── integration/        # Vitest + axios — service endpoint tests (HTTP assertions)
 ├── scripts/
-│   └── deploy-local.sh     # Full local Kind deploy (create, build, load, deploy)
+│   ├── deploy-local.sh     # Full local Kind deploy (create, build, load, deploy)
+│   └── chaos/              # Failure injection scripts (Phase 4)
+│       ├── pod-kill.sh     # Kill a pod, verify resilience + self-healing
+│       ├── resource-pressure.sh  # CPU/memory stress via sidecar
+│       ├── dependency-failure.sh  # Kill downstream, observe upstream
+│       └── latency-injection.sh  # Slow downstream, test timeouts
 ├── kind-config.yaml         # Kind cluster: 1 control-plane + 2 workers
 └── .github/workflows/
     └── ci.yml              # CI pipeline (lint, typecheck, K8s validate, deploy, test)
@@ -38,6 +45,8 @@ npm run stop
 
 ### Kubernetes (Kind)
 
+Everything runs inside Docker containers via Kind — nothing touches your host beyond Docker itself. When you delete the cluster, it's all gone.
+
 ```bash
 # Full deploy (create cluster, build images, deploy, verify)
 ./scripts/deploy-local.sh
@@ -45,6 +54,11 @@ npm run stop
 # Tear down
 kind delete cluster --name platform-lab
 ```
+
+**Kind-specific workarounds** (safe, sandboxed to Docker's internal network):
+- `imagePullPolicy: Never` — images are pre-loaded via `kind load`, no registry involved. In a real cluster (EKS/GKE) you'd use a container registry.
+- `--kubelet-insecure-tls` on metrics-server — skips TLS between fake Kind nodes. Required because Kind nodes don't have real TLS certs. Only affects traffic inside Docker, never your real network.
+- Third-party manifests bundled in `k8s/vendor/` — avoids downloading from GitHub at deploy time (blocked by VPN).
 
 ### Testing
 
@@ -57,6 +71,27 @@ npm run test:infra
 ```
 
 See [TESTING.md](TESTING.md) for full testing strategy.
+
+### Chaos / Failure Injection (Phase 4)
+
+Prerequisites: Docker running + Kind cluster deployed (`./scripts/deploy-local.sh`)
+
+```bash
+# Pod kill — delete a pod, verify service stays up and K8s self-heals
+./scripts/chaos/pod-kill.sh service-a
+./scripts/chaos/pod-kill.sh service-b
+
+# Resource pressure — CPU throttling + OOMKill via sidecar
+./scripts/chaos/resource-pressure.sh service-a cpu
+./scripts/chaos/resource-pressure.sh service-a mem
+./scripts/chaos/resource-pressure.sh service-a all
+
+# Dependency failure — kill downstream, observe upstream
+./scripts/chaos/dependency-failure.sh
+
+# Latency injection — slow downstream, test upstream timeout
+./scripts/chaos/latency-injection.sh
+```
 
 ## Endpoints
 
@@ -89,4 +124,18 @@ Static checks (lint, typecheck, K8s validation) run in parallel. Deploy + test r
 - [x] Phase 2: Local Kind cluster + deploy + verify service-to-service comms
 - [x] Phase 3: CI pipeline (lint, config validation, integration tests)
 - [ ] Phase 4: Failure injection (pod kills, resource pressure, latency)
+  - [x] Step 1: Pod kill — resilience to pod deletion
+  - [x] Step 2: Resource pressure — CPU throttling + OOMKill (sidecar approach)
+  - [x] Step 3: Dependency failure — kill Service B, observe Service A
+  - [x] Step 4: Latency injection — slow downstream, observe upstream
 - [ ] Phase 5: Encode learnings into CI guardrails
+- [ ] Phase 6: AI service — add an LLM-powered service to the platform
+- [ ] Phase 7: AI quality guardrails — non-deterministic assertions, golden sets, accuracy gates
+
+LEFT AT:
+
+Next session — pick up from:
+
+Step 5: Observation script
+
+Then Phase 5: wire the guardrails into CI. All captured in CHAOS.md.
