@@ -20,7 +20,10 @@ platform-quality-lab/
 ├── scripts/
 │   ├── deploy-local.sh     # Full local Kind deploy (create, build, load, deploy)
 │   └── chaos/              # Failure injection scripts (Phase 4)
-│       └── pod-kill.sh     # Kill a pod, verify resilience + self-healing
+│       ├── pod-kill.sh     # Kill a pod, verify resilience + self-healing
+│       ├── resource-pressure.sh  # CPU/memory stress via sidecar
+│       ├── dependency-failure.sh  # Kill downstream, observe upstream
+│       └── latency-injection.sh  # Slow downstream, test timeouts
 ├── kind-config.yaml         # Kind cluster: 1 control-plane + 2 workers
 └── .github/workflows/
     └── ci.yml              # CI pipeline (lint, typecheck, K8s validate, deploy, test)
@@ -77,6 +80,17 @@ Prerequisites: Docker running + Kind cluster deployed (`./scripts/deploy-local.s
 # Pod kill — delete a pod, verify service stays up and K8s self-heals
 ./scripts/chaos/pod-kill.sh service-a
 ./scripts/chaos/pod-kill.sh service-b
+
+# Resource pressure — CPU throttling + OOMKill via sidecar
+./scripts/chaos/resource-pressure.sh service-a cpu
+./scripts/chaos/resource-pressure.sh service-a mem
+./scripts/chaos/resource-pressure.sh service-a all
+
+# Dependency failure — kill downstream, observe upstream
+./scripts/chaos/dependency-failure.sh
+
+# Latency injection — slow downstream, test upstream timeout
+./scripts/chaos/latency-injection.sh
 ```
 
 ## Endpoints
@@ -113,7 +127,7 @@ Static checks (lint, typecheck, K8s validation) run in parallel. Deploy + test r
   - [x] Step 1: Pod kill — resilience to pod deletion
   - [x] Step 2: Resource pressure — CPU throttling + OOMKill (sidecar approach)
   - [x] Step 3: Dependency failure — kill Service B, observe Service A
-  - [ ] Step 4: Latency injection — slow downstream, observe upstream
+  - [x] Step 4: Latency injection — slow downstream, observe upstream
 - [ ] Phase 5: Encode learnings into CI guardrails
 - [ ] Phase 6: AI service — add an LLM-powered service to the platform
 - [ ] Phase 7: AI quality guardrails — non-deterministic assertions, golden sets, accuracy gates
@@ -122,8 +136,6 @@ LEFT AT:
 
 Next session — pick up from:
 
-Step 3: Dependency failure (kill Service B, observe Service A)
-Step 4: Latency injection (slow Service B, observe Service A)
 Step 5: Observation script
 
 Then Phase 5: wire the guardrails into CI. All captured in CHAOS.md.
