@@ -67,17 +67,21 @@ spec:
                 secretKeyRef:
                   name: postgres-credentials
                   key: PACT_BROKER_AUTH_RO_PASSWORD
+          startupProbe:
+            httpGet:
+              path: /diagnostic/status/heartbeat
+              port: 9292
+            failureThreshold: 30
+            periodSeconds: 5
           readinessProbe:
             httpGet:
               path: /diagnostic/status/heartbeat
               port: 9292
-            initialDelaySeconds: 15
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /diagnostic/status/heartbeat
               port: 9292
-            initialDelaySeconds: 60
             periodSeconds: 15
           resources:
             requests:
