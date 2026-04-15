@@ -90,7 +90,7 @@ The Broker typically has two sets of credentials:
 | Read-only user | Browsing the Broker UI, viewing contracts | Read-only |
 
 Best practices:
-- Store credentials in a secrets manager (e.g. SSM Parameter Store, Secrets Manager, Vault)
+- Store credentials in a secrets manager (e.g. Vault, cloud-native secrets store)
 - Rotate credentials periodically
 - Never hardcode credentials in pipeline configs — reference them from the secrets store
 - Use the read-only user for any non-automated access

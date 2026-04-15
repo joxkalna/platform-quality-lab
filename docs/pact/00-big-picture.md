@@ -108,9 +108,15 @@ A typical Pact Broker deployment consists of:
 - A **load balancer** in front of the container
 - **DNS** pointing to the load balancer
 - **Basic auth** with separate read-only and read-write credentials
-- **SSM / Secrets Manager** for credential storage
+- **Secrets store** for credential storage
 
 For local development, this project runs the Broker on a Kind cluster — see [04-broker-ops.md](./04-broker-ops.md#local-kind-deployment) for setup steps.
+
+## Monorepo vs Multi-Repo
+
+This project keeps everything in one repo for simplicity. In a real organisation, the broker infrastructure, provider initialisation, shared verification library, and each service would live in separate repos owned by different teams.
+
+See [06-repo-separation.md](./06-repo-separation.md) for the full mapping — what each repo contains, how they connect, and a checklist for scaling from monorepo to multi-repo.
 
 ## Further Reading
 
