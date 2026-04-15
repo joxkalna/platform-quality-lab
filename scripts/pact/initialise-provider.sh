@@ -9,10 +9,11 @@ set -euo pipefail
 
 PROVIDER="${1:?Usage: $0 <provider-name>}"
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
-BROKER_URL="${PACT_BROKER_URL:-http://localhost:30080}"
 
 source "$ROOT_DIR/.env"
 
+BROKER_URL="$PACT_BROKER_BASE_URL"
+TOKEN="$PACT_BROKER_TOKEN"
 COMMIT=$(git rev-parse --short=8 HEAD)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
@@ -26,22 +27,30 @@ echo "→ Creating provider version..."
 npx pact-broker create-or-update-pacticipant \
   --name "$PROVIDER" \
   --broker-base-url "$BROKER_URL" \
-  --broker-username "$PACT_BROKER_AUTH_USERNAME" \
-  --broker-password "$PACT_BROKER_AUTH_PASSWORD"
+  --broker-token "$TOKEN"
 
-echo "✓ Provider '$PROVIDER' registered"
-
-# 2. Record deployment to 'local' environment
-echo "→ Recording deployment to 'local'..."
-npx pact-broker record-deployment \
+# Create the version with branch tag
+npx pact-broker create-version-tag \
   --pacticipant "$PROVIDER" \
   --version "$COMMIT" \
-  --environment local \
+  --tag "$BRANCH" \
+  --auto-create-version \
   --broker-base-url "$BROKER_URL" \
-  --broker-username "$PACT_BROKER_AUTH_USERNAME" \
-  --broker-password "$PACT_BROKER_AUTH_PASSWORD"
+  --broker-token "$TOKEN"
 
-echo "✓ Deployment recorded for 'local'"
+echo "✓ Provider '$PROVIDER' registered (version: $COMMIT, branch: $BRANCH)"
+
+# 2. Record deployment to all environments (green baseline)
+for ENV_NAME in dev prod; do
+  echo "→ Recording deployment to '$ENV_NAME'..."
+  npx pact-broker record-deployment \
+    --pacticipant "$PROVIDER" \
+    --version "$COMMIT" \
+    --environment "$ENV_NAME" \
+    --broker-base-url "$BROKER_URL" \
+    --broker-token "$TOKEN"
+  echo "✓ Deployment recorded for '$ENV_NAME'"
+done
 
 echo ""
 echo "=== Initialisation Complete ==="
