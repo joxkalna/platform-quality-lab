@@ -86,7 +86,7 @@ The reusable pipeline should provide these shell functions:
 
 ## Best Practices
 
-- Standardise on a shared pipeline — don't let teams roll their own pact CI jobs
+- Standardise on a shared pipeline — don't let teams roll their own pact CI jobs (see [06-repo-separation.md](./06-repo-separation.md#3-shared-provider-library-repo) for the shared library pattern)
 - Block non-pact jobs on webhook-triggered pipelines to keep them fast
 - Use `--retry-while-unknown` in can-i-deploy to handle async verification
 - Record deployments only from the protected main branch

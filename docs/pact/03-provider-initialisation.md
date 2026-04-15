@@ -26,7 +26,7 @@ This follows the [Pact Nirvana](https://docs.pact.io/pact_nirvana) recommended a
 
 ## What You Need
 
-This pipeline is triggered **manually** from your CI platform (GitHub Actions, GitLab CI, etc.) by filling in variables before hitting run. You don't push to main — you run it on a branch with the variables populated in the CI UI.
+This pipeline is triggered **manually** from your CI platform (e.g. GitHub Actions) by filling in variables before hitting run. You don't push to main — you run it on a branch with the variables populated in the CI UI.
 
 This is important because without initialisation, `can-i-deploy` has no baseline. By running this first — even from a branch — you register the provider and record deployments so that `can-i-deploy` returns green from day one, before any real pipeline touches main.
 
@@ -35,7 +35,7 @@ This is important because without initialisation, `can-i-deploy` has no baseline
 | `PROVIDER` | The provider service name | `my-provider-service` |
 | `BRANCH` | Your default branch name | `main` |
 | `COMMIT` | HEAD short SHA (8 chars) of your default branch | `dee1780a` |
-| `PROJECT_ID` | Your CI/CD project identifier | `26800725` |
+| `PROJECT_ID` | Your CI/CD project identifier | `12345678` |
 | `TOKEN` | A CI/CD pipeline trigger token | `<trigger-token>` |
 | `CUSTOM_WEBHOOK_ID` | Optional UUID for the webhook (auto-generated if omitted) | `<uuid>` |
 
@@ -211,7 +211,7 @@ With the webhook in place, any consumer that publishes a pact against this provi
 
 ## Best Practices
 
-- Keep initialisation in a separate repo — it's a shared tool, not part of any one service
+- Keep initialisation in a separate repo — it's a shared tool, not part of any one service (see [06-repo-separation.md](./06-repo-separation.md#2-provider-initialisation-repo) for the full repo structure)
 - Always dry run first
 - Use the git short SHA (8 chars) as the version — it's traceable and unique
 - Store the webhook ID — you'll need it for updates

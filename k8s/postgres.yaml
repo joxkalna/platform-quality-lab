@@ -28,6 +28,7 @@ spec:
       containers:
         - name: postgres
           image: postgres:15-alpine
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
           envFrom:
@@ -38,7 +39,7 @@ spec:
               mountPath: /var/lib/postgresql/data
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "pact_admin", "-d", "pact-broker"]
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:

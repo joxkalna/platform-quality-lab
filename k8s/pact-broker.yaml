@@ -17,6 +17,7 @@ spec:
       containers:
         - name: pact-broker
           image: pactfoundation/pact-broker:2.102.2.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9292
           env:
@@ -42,6 +43,8 @@ spec:
               value: "true"
             - name: PACT_BROKER_LOG_LEVEL
               value: "INFO"
+          # Kind-specific: localhost because NodePort maps to host via kind-config.yaml.
+            # Production: https://pact-broker.example.io (DNS pointing at load balancer)
             - name: PACT_BROKER_BASE_URL
               value: "http://localhost:30080"
             - name: PACT_BROKER_BASIC_AUTH_USERNAME
@@ -74,7 +77,7 @@ spec:
             httpGet:
               path: /diagnostic/status/heartbeat
               port: 9292
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 15
           resources:
             requests:
