@@ -19,9 +19,8 @@ describe('Pact Verification — service-b', () => {
     const output = await new Verifier({
       provider: 'service-b',
       providerBaseUrl: `http://localhost:${PORT}`,
-      pactBrokerUrl: process.env.PACT_BROKER_URL || 'http://localhost:30080',
-      pactBrokerUsername: process.env.PACT_BROKER_USERNAME,
-      pactBrokerPassword: process.env.PACT_BROKER_PASSWORD,
+      pactBrokerUrl: process.env.PACT_BROKER_BASE_URL,
+      pactBrokerToken: process.env.PACT_BROKER_TOKEN,
       publishVerificationResult: process.env.CI === 'true',
       providerVersion: process.env.GIT_SHORT_SHA,
       providerVersionBranch: process.env.GIT_BRANCH,
@@ -33,7 +32,6 @@ describe('Pact Verification — service-b', () => {
       enablePending: true,
       failIfNoPactsFound: false,
       logLevel: 'warn',
-      // Webhook-triggered: verify the specific pact
       ...(process.env.PACT_URL ? { pactUrls: [process.env.PACT_URL] } : {}),
     }).verifyProvider()
 
