@@ -16,6 +16,8 @@
     "test:integration": "vitest run --config tests/integration/vitest.config.mts",
     "test:infra": "bats tests/infrastructure/",
     "test:pact:verify": "vitest run --config tests/pact/vitest.pact.config.mts",
+    "test:pact": "vitest run --config tests/pact/vitest.pact-consumer.config.mts",
+    "pact:publish": "./scripts/pact/publish.sh",
     "pact:init-provider": "./scripts/pact/initialise-provider.sh"
   },
   "devDependencies": {
