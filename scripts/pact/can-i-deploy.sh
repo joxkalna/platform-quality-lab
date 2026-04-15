@@ -23,8 +23,36 @@ echo "=== Can-I-Deploy ==="
 echo "  Environment: $ENV"
 echo "  Version:     $COMMIT"
 
-# Check consumer can deploy (has verified pact with provider at this version)
-echo "→ Checking service-a can deploy to $ENV..."
+# --- Multi-repo pattern (production) ---
+# Each service has its own pipeline and commit SHA.
+# can-i-deploy checks: "is my version compatible with what's currently deployed?"
+#
+# Consumer pipeline:
+#   npx pact-broker can-i-deploy \
+#     --pacticipant service-a \
+#     --version "$COMMIT" \
+#     --to-environment "$ENV" \
+#     --broker-base-url "$BROKER_URL" \
+#     --broker-token "$TOKEN" \
+#     --retry-while-unknown 5 \
+#     --retry-interval 10
+#
+# Provider pipeline:
+#   npx pact-broker can-i-deploy \
+#     --pacticipant service-b \
+#     --version "$COMMIT" \
+#     --to-environment "$ENV" \
+#     --broker-base-url "$BROKER_URL" \
+#     --broker-token "$TOKEN" \
+#     --retry-while-unknown 5 \
+#     --retry-interval 10
+
+# --- Monorepo workaround ---
+# Both services share a commit, so we check them against each other
+# at the same version instead of against what's deployed.
+# This avoids the version mismatch when the deployed version (from a
+# previous pipeline run) differs from the current commit.
+echo "→ Checking service-a + service-b compatibility..."
 npx pact-broker can-i-deploy \
   --pacticipant service-a \
   --version "$COMMIT" \
