@@ -28,16 +28,20 @@ if ! kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
   exit 1
 fi
 
-# 2. Pre-load Broker image into Kind
+# 2. Pre-load images into Kind
 # VPN blocks image pulls inside Kind nodes, so pull on host and load in.
-if docker exec "${CLUSTER_NAME}-control-plane" crictl images 2>/dev/null | grep -q "pactfoundation/pact-broker"; then
-  echo "✓ Broker image already loaded in Kind"
-else
-  echo "→ Pulling Broker image on host..."
-  docker pull "$BROKER_IMAGE"
-  echo "→ Loading Broker image into Kind..."
-  kind load docker-image "$BROKER_IMAGE" --name "$CLUSTER_NAME"
-fi
+POSTGRES_IMAGE="postgres:15-alpine"
+
+for IMAGE in "$BROKER_IMAGE" "$POSTGRES_IMAGE"; do
+  if docker exec "${CLUSTER_NAME}-control-plane" crictl images 2>/dev/null | grep -q "$(echo $IMAGE | cut -d: -f1)"; then
+    echo "✓ $IMAGE already loaded in Kind"
+  else
+    echo "→ Pulling $IMAGE on host..."
+    docker pull "$IMAGE"
+    echo "→ Loading $IMAGE into Kind..."
+    kind load docker-image "$IMAGE" --name "$CLUSTER_NAME"
+  fi
+done
 
 # 3. Create Secret from .env
 echo "→ Creating K8s Secret from .env..."

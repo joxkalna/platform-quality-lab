@@ -144,6 +144,41 @@ jobs:
           kubectl rollout status deployment/service-b --timeout=60s
           kubectl rollout status deployment/service-a --timeout=60s
 
+      # --- Pact Broker ---
+
+      - name: Create .env from secrets
+        run: |
+          echo "POSTGRES_USER=${{ secrets.PACT_POSTGRES_USER }}" >> .env
+          echo "POSTGRES_PASSWORD=${{ secrets.PACT_POSTGRES_PASSWORD }}" >> .env
+          echo "POSTGRES_DB=pact-broker" >> .env
+          echo "PACT_BROKER_AUTH_USERNAME=${{ secrets.PACT_BROKER_AUTH_USERNAME }}" >> .env
+          echo "PACT_BROKER_AUTH_PASSWORD=${{ secrets.PACT_BROKER_AUTH_PASSWORD }}" >> .env
+          echo "PACT_BROKER_AUTH_RO_USERNAME=${{ secrets.PACT_BROKER_AUTH_RO_USERNAME }}" >> .env
+          echo "PACT_BROKER_AUTH_RO_PASSWORD=${{ secrets.PACT_BROKER_AUTH_RO_PASSWORD }}" >> .env
+
+      - name: Deploy Pact Broker
+        run: bash scripts/deploy-pact-broker.sh
+
+      - name: Initialise provider (service-b)
+        run: bash scripts/pact/initialise-provider.sh service-b
+
+      # --- Pact tests ---
+
+      - name: Run consumer pact tests
+        run: npm run test:pact
+
+      - name: Publish pacts to Broker
+        run: bash scripts/pact/publish.sh
+        env:
+          CI: "true"
+
+      - name: Run provider verification
+        run: npm run test:pact:verify
+        env:
+          CI: "true"
+          PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_AUTH_USERNAME }}
+          PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_AUTH_PASSWORD }}
+
       # --- Infrastructure tests (BATS) ---
 
       - name: Install BATS
