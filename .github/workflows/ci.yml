@@ -133,6 +133,11 @@ jobs:
         env:
           CI: "true"
 
+      - name: Can-i-deploy + record deployment
+        run: bash scripts/pact/can-i-deploy.sh
+        env:
+          CI: "true"
+
   # Kind cluster deploy + infrastructure/integration tests
   deploy-and-test:
     needs: [lint, typecheck, validate-k8s, pact]
