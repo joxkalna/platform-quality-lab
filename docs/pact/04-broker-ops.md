@@ -10,6 +10,22 @@ A typical Pact Broker deployment consists of:
 - A **DNS record** pointing to the load balancer
 - **Basic auth** with separate read-write and read-only credentials
 
+## Pact Broker CLI
+
+All Broker operations use the `pact-broker` CLI. There are three ways to install it — they all provide the same commands:
+
+| Method | Install | Invoke | When to use |
+|---|---|---|---|
+| npm package | `npm install --save-dev @pact-foundation/pact-cli` | `npx pact-broker <command>` | Node.js projects |
+| Ruby gem | `gem install pact_broker-client` | `pact-broker <command>` | Ruby projects, or baked into a shared CI Docker image |
+| Docker | (none) | `docker run --rm pactfoundation/pact-cli <command>` | No runtime dependency |
+
+In a large org, the Ruby gem is typically pre-installed in a shared CI Docker image so every pipeline job has it available without installing per-repo. This project uses the npm package since the stack is Node/TypeScript.
+
+The Ruby gem uses `pact-broker <command>`. The npm package uses `npx pact-broker <command>`. The commands and flags are identical — only the invocation differs.
+
+All examples in these docs use `pact-broker <command>` (without `npx`) for readability. In this project's scripts, you'll see `npx pact-broker` because we use the npm package.
+
 ## Local Kind Deployment
 
 This project runs the Pact Broker locally on a Kind cluster. The setup lives in `k8s/`:

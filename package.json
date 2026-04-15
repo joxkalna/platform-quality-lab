@@ -9,14 +9,19 @@
     "stop": "lsof -ti:3000,3001 | xargs kill -9 2>/dev/null; echo 'stopped'",
     "k8s:up": "./scripts/deploy-local.sh",
     "k8s:down": "kind delete cluster --name platform-lab && docker image rm registry.k8s.io/metrics-server/metrics-server:v0.8.1 2>/dev/null; echo 'cluster deleted'",
+    "pact:broker": "./scripts/deploy-pact-broker.sh",
     "lint": "eslint services/*/src/**/*.ts",
     "typecheck:a": "cd services/service-a && npx tsc --noEmit",
     "typecheck:b": "cd services/service-b && npx tsc --noEmit",
     "test:integration": "vitest run --config tests/integration/vitest.config.mts",
-    "test:infra": "bats tests/infrastructure/"
+    "test:infra": "bats tests/infrastructure/",
+    "test:pact:verify": "vitest run --config tests/pact/vitest.pact.config.mts",
+    "pact:init-provider": "./scripts/pact/initialise-provider.sh"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@pact-foundation/pact": "^16.3.0",
+    "@pact-foundation/pact-cli": "^18.0.0",
     "axios": "1.15.0",
     "concurrently": "^8.2.2",
     "eslint": "^9.39.4",
