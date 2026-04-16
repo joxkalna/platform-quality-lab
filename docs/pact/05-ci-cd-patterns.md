@@ -69,20 +69,23 @@ The reusable pipeline should provide these shell functions:
 
 ## Adoption Checklist
 
-### New Consumer
+**Order matters:** Provider goes to main first (fully merged and deployed), then consumer starts on a branch. See [08-adoption-plan.md](./08-adoption-plan.md) for the full rollout sequence.
 
-1. [ ] Write consumer pact tests
-2. [ ] Add `test:pact` script to package.json
-3. [ ] Enable `PACT_TESTING` and add pact_test, pact_publish, can_i_deploy jobs
-4. [ ] Add `PACTICIPANTS` and `ENVIRONMENT` to each deploy job
-
-### New Provider
+### New Provider (do this first)
 
 1. [ ] Initialise the provider with the Broker — see [03-provider-initialisation.md](./03-provider-initialisation.md)
 2. [ ] Write provider verification test — see [02-provider-verification.md](./02-provider-verification.md)
 3. [ ] Add `test:pact:verify` script to package.json
 4. [ ] Enable `PACT_TESTING` and add pact_verify, can_i_deploy jobs
 5. [ ] Add `PACTICIPANTS` and `ENVIRONMENT` to each deploy job
+6. [ ] Merge to main and deploy — pipeline is green with zero pacts (`failIfNoPactsFound: false`)
+
+### New Consumer (do this after provider is on main)
+
+1. [ ] Write consumer pact tests
+2. [ ] Add `test:pact` script to package.json
+3. [ ] Enable `PACT_TESTING` and add pact_test, pact_publish, can_i_deploy jobs
+4. [ ] Add `PACTICIPANTS` and `ENVIRONMENT` to each deploy job
 
 ## Best Practices
 

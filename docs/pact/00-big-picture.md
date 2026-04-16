@@ -99,6 +99,17 @@ It answers this by checking whether all contracts involving that service version
 7. Before deploying either service, `can-i-deploy` checks compatibility
 8. If all contracts are green, deploy proceeds
 
+## Rollout Order
+
+When introducing Pact for the first time, the order matters:
+
+1. **Broker** — deploy and register environments (one-time for the org)
+2. **Provider first** — register on the Broker, add verification + `can-i-deploy` + `record-deployment` to its pipeline, merge to main. The pipeline is green because there are no pacts to verify yet (`failIfNoPactsFound: false`)
+3. **Consumer second** — write pact tests on a feature branch, push to CI. The pact is published to the Broker. The provider verifies it (pending pacts don't break the provider thanks to `enablePending: true`). Merge when `can-i-deploy` is green
+4. **Webhooks** (multi-repo only) — add after both sides are working end-to-end. Not needed in a monorepo
+
+The provider goes to main first, fully, before the consumer writes anything. See [08-adoption-plan.md](./08-adoption-plan.md) for the detailed step-by-step.
+
 ## Infrastructure Overview
 
 A typical Pact Broker deployment consists of:

@@ -122,9 +122,14 @@ It's tempting to pick the most complex or most painful integration — "this is 
 
 ## Phase 2: First Provider
 
-**Goal:** The provider is registered with the Broker and has a green baseline in all environments.
+**Goal:** The provider is registered with the Broker, merged to main, and deployed with a green baseline in all environments — before any consumer writes a single pact test.
 
-Pick the provider service first. This is the service that serves the API — the one that will be verified against consumer contracts.
+The provider goes first and goes all the way to main. This is safe because:
+- `failIfNoPactsFound: false` means verification passes when no consumer has published a pact yet
+- `can-i-deploy` passes because no consumers have contracts against this provider
+- The pipeline is fully green with zero pacts — that's the expected state at this point
+
+Do not start consumer work until the provider is merged, deployed, and recorded on the Broker. The consumer needs a registered provider to publish pacts against.
 
 ### Steps
 
@@ -225,7 +230,8 @@ Pick the provider service first. This is the service that serves the API — the
 - [ ] Provider registered on the Broker with a version
 - [ ] Deployments recorded for all environments
 - [ ] Provider pipeline has: verify → can-i-deploy → deploy → record-deployment
-- [ ] Pipeline is green (no pacts to verify yet, that's fine)
+- [ ] Pipeline is green on main (no pacts to verify yet — that's the expected state)
+- [ ] Provider is merged and deployed before moving to Phase 3
 
 ### References
 
@@ -238,7 +244,9 @@ Pick the provider service first. This is the service that serves the API — the
 
 **Goal:** The consumer publishes a pact, the provider verifies it, and both pipelines gate on `can-i-deploy`.
 
-Pick the consumer service. This is the service that makes HTTP requests to the provider.
+The provider must already be on main with a green baseline (Phase 2 complete) before starting this phase.
+
+The consumer starts on a feature branch. When CI runs on the branch, it publishes the pact to the Broker. The provider's next pipeline run picks it up and verifies it. Because `enablePending: true` is set on the provider, the new pact won't break the provider's pipeline — it's treated as pending until verified. The consumer's `can-i-deploy` uses `--retry-while-unknown` to wait for the provider to verify before proceeding.
 
 ### Steps
 
@@ -318,7 +326,7 @@ Pick the consumer service. This is the service that makes HTTP requests to the p
      --broker-base-url "$PACT_BROKER_URL" ...
    ```
 
-4. **Trigger the provider pipeline** — the provider needs to verify the newly published pact. At this stage (no webhooks), just re-run the provider pipeline manually or wait for its next commit.
+4. **Trigger the provider pipeline** — the provider needs to verify the newly published pact. At this stage (no webhooks yet), either re-run the provider pipeline manually or wait for its next commit. Because `enablePending: true`, the new pact won't break the provider — it's pending until verified. Once verified, `can-i-deploy` passes for both sides.
 
 5. **Verify end-to-end:**
    - Broker UI shows the consumer pact
@@ -342,11 +350,13 @@ Pick the consumer service. This is the service that makes HTTP requests to the p
 
 ---
 
-## Phase 4: Webhooks
+## Phase 4: Webhooks (Multi-Repo Only)
 
 **Goal:** Consumer pact changes automatically trigger provider verification — no manual re-runs.
 
-Without webhooks, the provider only verifies pacts when its own pipeline runs. This means a consumer can publish a breaking pact and not find out until the provider's next commit — which could be hours or days later.
+**Important:** Webhooks are only needed when the consumer and provider are in separate repos. In a monorepo, both sides run in the same pipeline, so the provider verifies the pact in the same CI run that publishes it. Skip this phase if you're in a monorepo.
+
+In a multi-repo setup, without webhooks the provider only verifies pacts when its own pipeline runs. This means a consumer can publish a breaking pact and not find out until the provider's next commit — which could be hours or days later.
 
 ### Steps
 

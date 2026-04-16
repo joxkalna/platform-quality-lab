@@ -16,11 +16,11 @@ The Pact Broker needs to know a provider exists before anyone can deploy against
 
 Without this, the first time the provider or any of its consumers tries to deploy, `can-i-deploy` fails because the Broker has no record of the provider — even if the service is already running fine in every environment.
 
-Initialisation also creates a webhook so that whenever a consumer publishes a new pact, the provider's pipeline is automatically triggered to verify it.
+```
+validate inputs → create provider → record deployments
+```
 
-```
-validate inputs → create provider → record deployments → create webhook
-```
+**Webhook creation is a separate step, done later.** Initialisation is about getting the provider registered and giving `can-i-deploy` a green baseline. Webhooks are added after both the provider and consumer are working end-to-end — see [08-adoption-plan.md Phase 4](./08-adoption-plan.md#phase-4-webhooks-multi-repo-only) for when to add them.
 
 This follows the [Pact Nirvana](https://docs.pact.io/pact_nirvana) recommended approach for reaching a fully automated contract testing workflow.
 
@@ -41,7 +41,7 @@ This is important because without initialisation, `can-i-deploy` has no baseline
 
 The commit SHA must be from an existing good commit that has already been deployed through all environments. You're telling the Broker: "this version is known-good and already live everywhere — use it as the starting point."
 
-## The 4 Steps
+## The Core Steps
 
 ### Step 1: Create the Provider
 
@@ -91,19 +91,17 @@ record-deployment:
 
 This is critical — without it, `can-i-deploy` reports "no deployed version found" and blocks all future deployments for this provider and its consumers.
 
-### Step 3: Generate a Webhook ID
+## Webhook Creation (Separate Step — Do Later)
+
+Webhook creation is **not part of initial provider setup**. Add webhooks after both the provider and consumer are working end-to-end (see [08-adoption-plan.md Phase 4](./08-adoption-plan.md#phase-4-webhooks-multi-repo-only)).
+
+Webhooks are only needed in multi-repo setups. In a monorepo, both sides run in the same pipeline, so the provider verifies the pact in the same CI run that publishes it.
+
+When you're ready, create the webhook:
 
 ```bash
 WEBHOOK_ID="${CUSTOM_WEBHOOK_ID:-$(uuidgen)}"
-```
 
-Store this ID — you'll need it to update the webhook later.
-
-### Step 4: Create the Webhook
-
-This is the key step. It sets up a webhook that **automatically triggers the provider's CI pipeline** whenever a consumer publishes a pact that needs verifying:
-
-```bash
 pact-broker create-or-update-webhook \
   --uuid "$WEBHOOK_ID" \
   "<ci-trigger-url>" \
