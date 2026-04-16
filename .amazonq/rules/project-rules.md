@@ -22,8 +22,10 @@ Treat this project as if it's a real service running in a large organisation. Us
 - **Phase 1** ✅ Scaffold — monorepo, both services, Dockerfiles, K8s manifests, Kind config
 - **Phase 2** ✅ Local cluster + deploy — Kind cluster, metrics-server, build/load images, deploy, verify service-to-service comms
 - **Phase 3** ✅ CI pipeline — GitHub Actions (lint, config validation, contract checks, integration tests)
-- **Phase 4** Failure injection — pod kills, resource pressure, dependency failure, latency injection
-- **Phase 5** Guardrails — CI gates, chaos reporting with diagnostics, manifest validation, Slack notifications, dashboard
+- **Phase 4** ✅ Failure injection — pod kills, resource pressure, dependency failure, latency injection
+- **Phase 5** Guardrails — CI gates, chaos reporting with diagnostics, manifest validation, contract testing, code quality
+  - ✅ Contract testing (Pact) — consumer/provider tests, PactFlow Broker, can-i-deploy gate in CI
+  - Manifest validation, chaos CI gates, code quality gates — remaining
 - **Phase 6** AI service — add a new service wrapping an LLM API, deploy to Kind, wire into service mesh
 - **Phase 7** AI quality guardrails — non-deterministic assertion patterns, golden set benchmarks, accuracy thresholds as CI gates, consistency tests
 
@@ -71,6 +73,61 @@ All chaos scripts live in `scripts/chaos/`. They require a running Kind cluster 
 
 See [CHAOS.md](CHAOS.md) for full experiment log, learnings, and Phase 5 guardrail implications.
 
+## Pact Contract Testing
+
+### Architecture
+- **Service A** is the consumer — calls Service B's `/info` endpoint
+- **Service B** is the provider — serves `/info`, verified against consumer pacts
+- **PactFlow** is the persistent Broker — stores pacts, verification results, deployment history
+- Consumer tests generate pact files locally, publish to PactFlow in CI only
+- Provider verification runs against PactFlow, publishes results in CI
+- `can-i-deploy` gates deployment after verification passes
+
+### Broker
+- PactFlow (SaaS) for persistent history across pipeline runs (30-day free trial, paid after)
+- After trial: switch to self-hosted (Docker Compose, K8s, or any cloud with Postgres) — same scripts, change URL + auth method (token → username/password)
+- Alternatives: Docker Compose (self-hosted), K8s manifests (reference in `k8s/`), any cloud with Postgres
+- Credentials stored in `.env` locally, GitHub Secrets in CI (`PACT_BROKER_BASE_URL`, `PACT_BROKER_TOKEN`)
+- Token auth (PactFlow) — not username/password
+
+### Environments
+- `dev` — branch builds (feature branches, PRs)
+- `prod` — main branch deployments
+- Registered on PactFlow via `./scripts/deploy-pact-broker.sh` (one-time)
+
+### Commands
+- `npm run test:pact` — run consumer tests locally (generates pact files, does NOT publish)
+- `npm run test:pact:verify` — run provider verification locally (verifies against PactFlow)
+- `./scripts/deploy-pact-broker.sh` — register environments on PactFlow (one-time)
+- `./scripts/pact/initialise-provider.sh <name>` — register a provider on PactFlow (one-time per provider)
+- `./scripts/pact/publish.sh` — CI only: publish pacts to PactFlow
+- `./scripts/pact/can-i-deploy.sh` — CI only: check compatibility + record deployment
+
+### Key Decisions
+- PactFlow over self-hosted — persistent history, zero infrastructure, `can-i-deploy` works across pipeline runs
+- Token auth — PactFlow uses API tokens, not username/password
+- Publish only in CI — `publish.sh` blocks locally to prevent dirty/untraceable versions
+- Never publish pacts, record deployments, or run can-i-deploy locally — only `initialise-provider.sh` runs locally as a one-time setup. Everything else goes through the pipeline
+- `failIfNoPactsFound: false` — provider pipeline passes before any consumer publishes (avoids chicken-and-egg)
+- `enablePending: true` — new pacts don't break the provider until verified
+- Monorepo `can-i-deploy` checks both services at the same commit version (production multi-repo pattern documented in comments)
+- Future improvement: split consumer and provider into separate repos to mirror production multi-repo Pact workflow (see `06-repo-separation.md`)
+- Webhooks not needed in monorepo — add when splitting repos (webhook triggers provider verification when consumer publishes a new pact)
+- Service B exports `app` with guarded `listen()` — allows `http.createServer(app)` in verification test (matches production thin-server pattern)
+- Separate vitest configs for consumer (`vitest.pact-consumer.config.mts`) and provider (`vitest.pact.config.mts`) — 30s timeout, no coverage
+
+### Pact Documentation
+Full documentation in `docs/pact/`:
+- `00-big-picture.md` — how all pieces fit together
+- `01-consumer-guide.md` — writing consumer pact tests
+- `02-provider-verification.md` — provider verification patterns
+- `03-provider-initialisation.md` — one-time provider setup
+- `04-broker-ops.md` — Broker operations, CLI installation, credentials
+- `05-ci-cd-patterns.md` — CI/CD pipeline patterns
+- `06-repo-separation.md` — monorepo vs multi-repo mapping
+- `07-adoption-at-scale.md` — strategies for large org adoption
+- `08-adoption-plan.md` — step-by-step plan from zero to working Pact
+
 ## Phase 5 Plan
 Phase 5 takes the learnings from Phase 4 chaos experiments and encodes them as automated CI guardrails.
 Phase 5 is large — split into feature branches:
@@ -78,7 +135,7 @@ Phase 5 is large — split into feature branches:
 - `phase5/chaos-reporting` — structured reports from chaos scripts with diagnostics that point at specific code/config when failures occur (file, line, what's missing)
 - `phase5/chaos-ci-gates` — run chaos scripts after deploy in CI, fail the pipeline if services don't survive
 - `phase5/code-quality-gates` — lint/review rules for outbound HTTP timeouts, error handling patterns
-- `phase5/contract-testing` — PACT consumer-driven contract tests between Service A and B
+- `phase5/contract-testing` ✅ — Pact consumer-driven contract tests between Service A and B, PactFlow Broker, can-i-deploy CI gate
 - `phase5/notifications-dashboard` — Slack/webhook alerts on guardrail failures + visibility dashboard
 
 ## Phase 2 Resource Baseline
