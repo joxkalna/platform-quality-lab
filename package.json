@@ -18,15 +18,19 @@
     "test:pact:verify": "vitest run --config tests/pact/vitest.pact.config.mts",
     "test:pact": "vitest run --config tests/pact/vitest.pact-consumer.config.mts",
     "pact:publish": "./scripts/pact/publish.sh",
-    "pact:init-provider": "./scripts/pact/initialise-provider.sh"
+    "pact:init-provider": "./scripts/pact/initialise-provider.sh",
+    "validate:manifests": "npx tsx scripts/validate-manifests.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@pact-foundation/pact": "^16.3.0",
     "@pact-foundation/pact-cli": "^18.0.0",
+    "@types/js-yaml": "^4.0.9",
     "axios": "1.15.0",
     "concurrently": "^8.2.2",
     "eslint": "^9.39.4",
+    "js-yaml": "^4.1.1",
+    "tsx": "^4.21.0",
     "typescript-eslint": "^8.58.1",
     "vitest": "^4.1.4"
   }
