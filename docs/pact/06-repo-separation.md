@@ -73,11 +73,12 @@ In a production org, Pact infrastructure is typically split across 5 types of re
 
 **What it is:** A set of shell scripts and a CI pipeline that registers a new provider with the Pact Broker. Run once per provider, triggered manually.
 
-**What it does (4 steps):**
-1. **Validate inputs** — checks all required variables are set and correctly formatted (provider name, branch, 8-char commit SHA, project ID, trigger token, optional webhook UUID)
+**What it does (3 steps):**
+1. **Validate inputs** — checks all required variables are set and correctly formatted (provider name, branch, 8-char commit SHA)
 2. **Create provider** — `pact-broker create-or-update-version` registers the provider as a pacticipant
 3. **Record deployments** — `pact-broker record-deployment` for each environment (dev, qa, staging, prod) in parallel, giving `can-i-deploy` a green baseline
-4. **Create webhook** — `pact-broker create-or-update-webhook` with `--contract_requiring_verification_published` so consumer pact changes auto-trigger provider verification
+
+Webhook creation is a separate step done later, after both provider and consumer are working end-to-end. See [08-adoption-plan.md Phase 4](./08-adoption-plan.md#phase-4-webhooks-multi-repo-only).
 
 **Key details:**
 - The pipeline is **manual-trigger only** — you fill in variables in the CI UI and hit run
