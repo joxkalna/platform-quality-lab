@@ -6,5 +6,8 @@ nodes:
       - containerPort: 30000
         hostPort: 30000
         protocol: TCP
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
   - role: worker
   - role: worker

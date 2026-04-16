@@ -95,10 +95,9 @@ jobs:
       - name: Validate K8s manifests
         run: kubeconform -strict -summary k8s/
 
-  # Single job: Kind cluster can't persist across jobs (each job = fresh runner)
-  # Steps are ordered: deploy → infra tests → integration tests
-  deploy-and-test:
-    needs: [lint, typecheck, validate-k8s]
+  # Pact contract tests — runs against persistent PactFlow Broker
+  pact:
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -116,7 +115,48 @@ jobs:
             services/service-b/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
-      # --- Deploy ---
+      - name: Create .env from secrets
+        run: |
+          echo "PACT_BROKER_BASE_URL=${{ secrets.PACT_BROKER_BASE_URL }}" >> .env
+          echo "PACT_BROKER_TOKEN=${{ secrets.PACT_BROKER_TOKEN }}" >> .env
+
+      - name: Run consumer pact tests
+        run: npm run test:pact
+
+      - name: Publish pacts to Broker
+        run: bash scripts/pact/publish.sh
+        env:
+          CI: "true"
+
+      - name: Run provider verification
+        run: npm run test:pact:verify
+        env:
+          CI: "true"
+
+      - name: Can-i-deploy + record deployment
+        run: bash scripts/pact/can-i-deploy.sh
+        env:
+          CI: "true"
+
+  # Kind cluster deploy + infrastructure/integration tests
+  deploy-and-test:
+    needs: [lint, typecheck, validate-k8s, pact]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore node_modules
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            services/service-a/node_modules
+            services/service-b/node_modules
+          key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install Kind
         run: |
