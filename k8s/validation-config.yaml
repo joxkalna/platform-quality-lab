@@ -1,0 +1,31 @@
+# Manifest Validation Config
+#
+# Skip rules and exceptions for manifest validation.
+# Document WHY each exception exists. If you can't explain why, don't skip it.
+#
+# Every skip must have a reason. If you can't explain why, don't skip it.
+
+# Files to exclude from validation entirely (vendor manifests, reference files)
+excludeFiles:
+  - "vendor/**"          # Third-party manifests (metrics-server) — not ours to validate
+  - "pact-broker.yaml"   # Reference manifest — not deployed, kept for documentation
+  - "postgres.yaml"      # Reference manifest — not deployed, kept for documentation
+
+# Per-rule skip list
+# Format: rule ID → list of files where the rule is skipped, with reason
+#
+# Available rules:
+#   replicas-minimum        — Deployment must have replicas >= 2
+#   resource-limits-cpu     — Container must have resources.limits.cpu
+#   resource-limits-memory  — Container must have resources.limits.memory
+#   resource-requests-cpu   — Container must have resources.requests.cpu
+#   resource-requests-memory — Container must have resources.requests.memory
+#   readiness-probe         — Container must have a readinessProbe
+#   liveness-probe          — Container must have a livenessProbe
+#   probe-separation        — readiness and liveness must use different paths (services with dependencies)
+#   memory-limit-ratio      — memory limit must be <= 4x request
+skipRules: {}
+  # Example:
+  # replicas-minimum:
+  #   - file: "some-singleton.yaml"
+  #     reason: "Leader-election singleton — only 1 replica by design"

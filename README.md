@@ -189,7 +189,3 @@ Static checks (lint, typecheck, K8s validation) and Pact contract tests run in p
   - [ ] Code quality gates — lint rules for HTTP timeouts, error handling
 - [ ] Phase 6: AI service — add an LLM-powered service to the platform
 - [ ] Phase 7: AI quality guardrails — non-deterministic assertions, golden sets, accuracy gates
-
-LEFT AT:
-
-Phase 5 in progress — contract testing (Pact) complete. Next: manifest validation, chaos CI gates, code quality gates.
