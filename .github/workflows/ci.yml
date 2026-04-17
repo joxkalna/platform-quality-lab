@@ -107,7 +107,7 @@ jobs:
           kubeconform: ${{ env.KUBECONFORM_VERSION }}
 
       - name: Validate K8s manifests (schema)
-        run: kubeconform -strict -summary k8s/
+        run: kubeconform -strict -summary -ignore-filename-pattern validation-config.yaml k8s/
 
       - name: Validate K8s manifests (policy)
         run: npm run validate:manifests
