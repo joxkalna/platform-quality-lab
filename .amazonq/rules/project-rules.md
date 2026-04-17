@@ -131,12 +131,20 @@ Full documentation in `docs/pact/`:
 ## Phase 5 Plan
 Phase 5 takes the learnings from Phase 4 chaos experiments and encodes them as automated CI guardrails.
 Phase 5 is large — split into feature branches:
-- `phase5/manifest-validation` ✅ — CI gate that parses K8s YAML and asserts: replicas ≥ 2, resource limits set, readiness ≠ liveness for services with dependencies
-- `phase5/chaos-reporting` — structured reports from chaos scripts with diagnostics that point at specific code/config when failures occur (file, line, what's missing)
-- `phase5/chaos-ci-gates` — run chaos scripts after deploy in CI, fail the pipeline if services don't survive
-- `phase5/code-quality-gates` — lint/review rules for outbound HTTP timeouts, error handling patterns
 - `phase5/contract-testing` ✅ — Pact consumer-driven contract tests between Service A and B, PactFlow Broker, can-i-deploy CI gate
-- `phase5/notifications-dashboard` — Slack/webhook alerts on guardrail failures + visibility dashboard
+- `phase5/manifest-validation` ✅ — CI gate that parses K8s YAML and asserts: replicas ≥ 2, resource limits set, readiness ≠ liveness for services with dependencies
+- `phase5/chaos-reporting` — (next) structured reports from chaos scripts with diagnostics that point at specific code/config when failures occur (file, line, what's missing)
+- `phase5/chaos-ci-gates` — run chaos scripts after deploy in CI, fail the pipeline if services don't survive. Depends on chaos-reporting for structured output
+- `phase5/code-quality-gates` — lint/review rules for outbound HTTP timeouts, error handling patterns
+- `phase5/notifications-dashboard` — (last) Slack/webhook alerts on guardrail failures + visibility dashboard. Needs other gates to exist first
+
+### Phase 5 Order
+1. ✅ Contract testing (Pact)
+2. ✅ Manifest validation
+3. Chaos reporting — give chaos scripts structured JSON output with diagnostics
+4. Chaos CI gates — wire structured chaos scripts into CI, fail pipeline if services don't survive
+5. Code quality gates — ESLint rules / custom scanner for HTTP timeouts, error handling
+6. Notifications/dashboard — visibility layer on top of all gates
 
 ## Package Extraction Plan
 All quality tooling in `scripts/` is structured for future extraction into a shared npm package published to GitHub Packages.
