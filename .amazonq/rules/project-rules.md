@@ -131,12 +131,23 @@ Full documentation in `docs/pact/`:
 ## Phase 5 Plan
 Phase 5 takes the learnings from Phase 4 chaos experiments and encodes them as automated CI guardrails.
 Phase 5 is large — split into feature branches:
-- `phase5/manifest-validation` — CI gate that parses K8s YAML and asserts: replicas ≥ 2, resource limits set, readiness ≠ liveness for services with dependencies
+- `phase5/manifest-validation` ✅ — CI gate that parses K8s YAML and asserts: replicas ≥ 2, resource limits set, readiness ≠ liveness for services with dependencies
 - `phase5/chaos-reporting` — structured reports from chaos scripts with diagnostics that point at specific code/config when failures occur (file, line, what's missing)
 - `phase5/chaos-ci-gates` — run chaos scripts after deploy in CI, fail the pipeline if services don't survive
 - `phase5/code-quality-gates` — lint/review rules for outbound HTTP timeouts, error handling patterns
 - `phase5/contract-testing` ✅ — Pact consumer-driven contract tests between Service A and B, PactFlow Broker, can-i-deploy CI gate
 - `phase5/notifications-dashboard` — Slack/webhook alerts on guardrail failures + visibility dashboard
+
+## Package Extraction Plan
+All quality tooling in `scripts/` is structured for future extraction into a shared npm package published to GitHub Packages.
+- **Not yet** — only one tool (manifest validation) exists. Packaging a single module is premature
+- **After Phase 5** — 2–3 tools (manifest validation, chaos reporting, code quality). Shape is becoming clear but still evolving
+- **After Phase 7** — 4+ tools (add AI assertions, golden sets). This is the extraction point
+- **Package name:** `@joxkalna/platform-quality-utils` (scoped to GitHub username, private on GitHub Packages)
+- **Pattern:** Multi-entry package with `exports` map — consumers cherry-pick what they need (`/manifest-validation`, `/chaos`, `/ai-assertions`)
+- **Structure:** Extract to `packages/platform-quality-utils/` in this repo. Orchestrators in `scripts/` import from the package. Other projects in `development/` install via npm
+- **Signal to extract:** When you find yourself copying code from this repo into another project
+- See `docs/manifest-validation.md` → "Publishing Plan — GitHub Packages" for full details
 
 ## Phase 2 Resource Baseline
 - Idle CPU: 1-13m per pod (limit: 200m)

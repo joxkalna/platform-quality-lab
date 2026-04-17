@@ -84,16 +84,33 @@ jobs:
           npm run typecheck:b
 
   validate-k8s:
+    needs: install
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore node_modules
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            node_modules
+            services/service-a/node_modules
+            services/service-b/node_modules
+          key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - uses: yokawasa/action-setup-kube-tools@v0.12.0
         with:
           kubeconform: ${{ env.KUBECONFORM_VERSION }}
 
-      - name: Validate K8s manifests
-        run: kubeconform -strict -summary k8s/
+      - name: Validate K8s manifests (schema)
+        run: kubeconform -strict -summary -ignore-filename-pattern validation-config.yaml k8s/
+
+      - name: Validate K8s manifests (policy)
+        run: npm run validate:manifests
 
   # Pact contract tests — runs against persistent PactFlow Broker
   pact:
