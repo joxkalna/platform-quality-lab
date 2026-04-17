@@ -246,6 +246,65 @@ The key insight: the one-concern-per-file structure we have now is the foundatio
 
 **Don't package until you know the shape. Structure the code so packaging is a `package.json` away, not a rewrite.**
 
+### Publishing Plan — GitHub Packages
+
+When the time comes to extract, publish as a private package to **GitHub Packages** (free for private repos, tied to your GitHub account). This is the same workflow used in real orgs with internal registries.
+
+#### Why GitHub Packages
+
+- **Free** for private packages (npm's private packages cost $7/month)
+- **Already integrated** — the repo is on GitHub, auth uses the same GitHub token
+- **Scoped to your account** — `@joxkalna/platform-quality-utils` (or whatever your GitHub username is)
+- **Same `npm install` workflow** — consumers just add a `.npmrc` pointing to GitHub's registry for your scope
+
+#### What extraction looks like
+
+When there are 3+ tools in `scripts/`, create a `packages/` directory:
+
+```
+platform-quality-lab/
+├── packages/
+│   └── platform-quality-utils/
+│       ├── src/
+│       │   ├── manifest-validation/   # moved from scripts/manifest-validation/
+│       │   ├── chaos/                 # moved from scripts/chaos-reporting/
+│       │   └── ai-assertions/         # from Phase 7
+│       ├── package.json               # @joxkalna/platform-quality-utils
+│       └── tsconfig.json
+├── services/
+├── scripts/                           # orchestrators remain here, import from package
+└── ...
+```
+
+The orchestrators (`validate-manifests.ts`, etc.) stay in `scripts/` and import from the package. Other projects in `development/` install the package normally.
+
+#### How consumers use it
+
+Another project in `development/` adds a `.npmrc`:
+
+```
+@joxkalna:registry=https://npm.pkg.github.com
+```
+
+Then installs:
+
+```bash
+npm install @joxkalna/platform-quality-utils
+```
+
+And imports only what they need:
+
+```typescript
+import { rules } from '@joxkalna/platform-quality-utils/manifest-validation'
+import { goldenSetRunner } from '@joxkalna/platform-quality-utils/ai-assertions'
+```
+
+#### When to pull the trigger
+
+- **Not now** — one tool, still evolving
+- **After Phase 7** — 4+ tools, the shape is clear, other projects can consume it
+- **The signal:** when you find yourself copying code from this repo into another project in `development/` — that's when you extract and publish
+
 ## Adding a New Rule
 
 1. Create a new file in `scripts/manifest-validation/rules/`:
