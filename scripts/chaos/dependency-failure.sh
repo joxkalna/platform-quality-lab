@@ -5,6 +5,11 @@ set -euo pipefail
 # Kills a downstream service and observes upstream behaviour.
 
 source "$(dirname "$0")/lib/report.sh"
+show_help "${1:-}" \
+  "Usage: dependency-failure.sh [upstream] [downstream]" "" \
+  "Kills the downstream service and observes upstream behaviour." \
+  "Defaults: upstream=service-a, downstream=service-b." \
+  "Requires a running Kind cluster with both services deployed."
 
 UPSTREAM="${1:-service-a}"
 DOWNSTREAM="${2:-service-b}"

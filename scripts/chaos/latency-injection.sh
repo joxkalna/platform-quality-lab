@@ -8,6 +8,12 @@ set -euo pipefail
 #   2. 5s delay (over 3s timeout) → should get 502
 
 source "$(dirname "$0")/lib/report.sh"
+show_help "${1:-}" \
+  "Usage: latency-injection.sh" "" \
+  "Deploys a slow server and tests Service A's timeout behaviour." \
+  "Scenario 1: 2s delay (under 3s timeout) — should get data." \
+  "Scenario 2: 5s delay (over 3s timeout) — should get 502." \
+  "Requires a running Kind cluster with services deployed."
 
 NAMESPACE="${NAMESPACE:-default}"
 TIMEOUT="${TIMEOUT:-60}"

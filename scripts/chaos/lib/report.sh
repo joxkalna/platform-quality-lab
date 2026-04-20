@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
+# ---------------------------------------------------------------------------
 # Chaos Reporting Library
 #
 # Sources into chaos scripts to produce structured JSON reports.
 # Human-readable output stays on stdout. JSON goes to a file.
+# If the script crashes mid-run, the EXIT trap ensures the report is written.
+#
+# Requires: jq
+#
+# Provides:
+#   report_start <experiment> <service>  — start a new report, set the timer
+#   check_pass   <name> <message>        — record a passing check
+#   check_fail   <name> <message> <what> <why> [file] [fix] — record a failure
+#   report_end                           — write JSON to reports/, print path
+#   show_help <usage> <description...>   — print help and exit if -h/--help passed
 #
 # Usage:
 #   source "$(dirname "$0")/lib/report.sh"
@@ -14,8 +25,20 @@
 #     "k8s/service-a.yaml" \
 #     "Check resource quotas and node capacity"
 #   report_end
+# ---------------------------------------------------------------------------
 
 REPORT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/reports"
+
+# show_help <flag> <lines...>
+# Call early in each script: show_help "${1:-}" "Usage: ..." "" "Description..."
+show_help() {
+  local flag="$1"; shift
+  if [[ "$flag" =~ ^-*h(elp)?$ ]]; then
+    printf '%s\n' "$@"
+    exit 0
+  fi
+}
+
 _REPORT_CHECKS="[]"
 _REPORT_EXPERIMENT=""
 _REPORT_SERVICE=""
