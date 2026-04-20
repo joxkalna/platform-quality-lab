@@ -133,7 +133,8 @@ else
   FAILED=true
 fi
 
-# Verify /data works again
+# Verify /data works again (re-resolve pod name — original may have been replaced)
+UPSTREAM_POD=$(kubectl get pods -l "app=$UPSTREAM" -n "$NAMESPACE" --field-selector="status.phase=Running" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
 RECOVERY_RESPONSE=$(kubectl exec "$UPSTREAM_POD" -n "$NAMESPACE" -- wget -qO- --timeout=10 "http://localhost:${UPSTREAM_PORT}/data" 2>&1) || true
 if echo "$RECOVERY_RESPONSE" | grep -q "service-b"; then
   echo "✓ /data recovered — downstream data flowing"

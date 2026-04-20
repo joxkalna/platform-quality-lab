@@ -35,6 +35,7 @@ report_start() {
   _REPORT_CHECKS="[]"
   _REPORT_START_MS="$(_now_ms)"
   mkdir -p "$REPORT_DIR"
+  trap _report_trap EXIT
 }
 
 # check_pass <name> <message>
@@ -74,7 +75,16 @@ check_fail() {
     '. + [{"name": $name, "passed": false, "message": $message, "diagnostic": $diagnostic}]')
 }
 
+# Trap to ensure report is written even if the script crashes mid-run
+_report_trap() {
+  if [[ -n "$_REPORT_EXPERIMENT" && -n "$_REPORT_START_MS" ]]; then
+    report_end
+  fi
+}
+
 report_end() {
+  # Prevent double-emit from trap
+  [[ -z "$_REPORT_START_MS" ]] && return
   local end_ms
   end_ms="$(_now_ms)"
   local duration_ms=$(( end_ms - _REPORT_START_MS ))
@@ -108,4 +118,7 @@ report_end() {
   echo "$report" > "$REPORT_DIR/$filename"
   echo ""
   echo "📄 Report: $REPORT_DIR/$filename"
+
+  # Clear start time to prevent double-emit from trap
+  _REPORT_START_MS=""
 }
