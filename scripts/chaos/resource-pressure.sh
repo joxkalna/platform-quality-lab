@@ -9,6 +9,10 @@ set -euo pipefail
 # Memory: stress-ng allocates beyond 128Mi limit → pod OOMKilled → K8s restarts it
 
 source "$(dirname "$0")/lib/report.sh"
+show_help "${1:-}" \
+  "Usage: resource-pressure.sh <service-name> <cpu|mem|all>" "" \
+  "Injects a stress-ng sidecar to test CPU throttling and OOMKill behaviour." \
+  "Requires a running Kind cluster with the service deployed."
 
 SERVICE="${1:?Usage: resource-pressure.sh <service-name> <cpu|mem|all>}"
 MODE="${2:-all}"

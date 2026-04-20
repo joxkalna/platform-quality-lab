@@ -8,6 +8,10 @@ set -euo pipefail
 #   3. Full replica count is restored
 
 source "$(dirname "$0")/lib/report.sh"
+show_help "${1:-}" \
+  "Usage: pod-kill.sh <service-name>" "" \
+  "Deletes a pod and verifies the service survives via the remaining replica." \
+  "Requires a running Kind cluster with the service deployed (2+ replicas)."
 
 SERVICE="${1:?Usage: pod-kill.sh <service-name> (e.g. service-a)}"
 NAMESPACE="${NAMESPACE:-default}"
