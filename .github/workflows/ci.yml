@@ -222,6 +222,9 @@ jobs:
           ./scripts/chaos/pod-kill.sh service-a
           ./scripts/chaos/pod-kill.sh service-b
 
+      - name: Run chaos — dependency failure
+        run: ./scripts/chaos/dependency-failure.sh
+
       - name: Chaos experiment summary
         if: always()
         run: ./scripts/chaos/render-summary.sh >> $GITHUB_STEP_SUMMARY

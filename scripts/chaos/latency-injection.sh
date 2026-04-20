@@ -7,11 +7,15 @@ set -euo pipefail
 #   1. 2s delay (under 3s timeout) → should get data
 #   2. 5s delay (over 3s timeout) → should get 502
 
+source "$(dirname "$0")/lib/report.sh"
+
 NAMESPACE="${NAMESPACE:-default}"
 TIMEOUT="${TIMEOUT:-60}"
 FAILED=false
 
 echo "=== Latency Injection ==="
+
+report_start "latency-injection" "service-a"
 
 # --- Deploy slow server (standalone, not pretending to be service-b) ---
 deploy_slow_server() {
@@ -90,8 +94,14 @@ DATA_RESPONSE=$(kubectl exec "$UPSTREAM_POD" -n "$NAMESPACE" -- wget -qO- --time
 
 if echo "$DATA_RESPONSE" | grep -q "service-b"; then
   echo "  ✓ PASS — got data back (slow but within timeout)"
+  check_pass "under-timeout" "2s delay: got data back (within 3s timeout)"
 else
   echo "  ✗ FAIL — expected data, got: $DATA_RESPONSE"
+  check_fail "under-timeout" "2s delay: did not get data back" \
+    "Service A failed to get response from 2s-delayed downstream" \
+    "Timeout may be set too low or fetch is not waiting for slow responses" \
+    "services/service-a/src/index.ts" \
+    "Check AbortSignal.timeout value — should be > 2s for this to pass"
   FAILED=true
 fi
 
@@ -106,8 +116,14 @@ DATA_RESPONSE=$(kubectl exec "$UPSTREAM_POD" -n "$NAMESPACE" -- wget -qO- --time
 
 if echo "$DATA_RESPONSE" | grep -qi "error\|fail\|502\|timed out"; then
   echo "  ✓ PASS — upstream timed out correctly"
+  check_pass "over-timeout" "5s delay: upstream timed out correctly (3s timeout fired)"
 else
   echo "  ✗ FAIL — expected timeout, got: $DATA_RESPONSE"
+  check_fail "over-timeout" "5s delay: upstream did not time out" \
+    "Service A waited for 5s response instead of timing out at 3s" \
+    "No timeout configured on outbound fetch call" \
+    "services/service-a/src/index.ts" \
+    "Add AbortSignal.timeout(3000) to fetch calls"
   FAILED=true
 fi
 
@@ -116,6 +132,8 @@ echo ""
 echo "→ Restoring service-a..."
 restore_service_a
 echo "✓ Restored"
+
+report_end
 
 # === Result ===
 echo ""
