@@ -193,6 +193,10 @@ jobs:
         run: |
           kind load docker-image service-a:latest --name platform-lab
           kind load docker-image service-b:latest --name platform-lab
+          docker pull alexeiled/stress-ng:latest
+          docker pull node:24-alpine
+          kind load docker-image alexeiled/stress-ng:latest --name platform-lab
+          kind load docker-image node:24-alpine --name platform-lab
 
       - name: Deploy to Kind
         run: |
@@ -216,6 +220,10 @@ jobs:
         run: npm run test:integration
 
       # --- Chaos experiments ---
+      # In a real org, chaos runs as a downstream pipeline against staging.
+      # It triggers after deploy succeeds, runs independently, and reports
+      # results via dashboard/Slack. Prod promotion doesn't wait for it.
+      # Here we run inline because the Kind cluster is ephemeral to this job.
 
       - name: Run chaos — pod kill
         run: |
@@ -224,6 +232,12 @@ jobs:
 
       - name: Run chaos — dependency failure
         run: ./scripts/chaos/dependency-failure.sh
+
+      - name: Run chaos — resource pressure
+        run: ./scripts/chaos/resource-pressure.sh service-a all
+
+      - name: Run chaos — latency injection
+        run: ./scripts/chaos/latency-injection.sh
 
       - name: Chaos experiment summary
         if: always()
