@@ -146,6 +146,8 @@ Prerequisites: Docker running + Kind cluster deployed (`./scripts/deploy-local.s
 ./scripts/chaos/latency-injection.sh
 ```
 
+See [docs/chaos-environments.md](docs/chaos-environments.md) for how these experiments map to staging and production — where they'd actually run, what tooling real orgs use, and why you'd never run pod-kill.sh against prod.
+
 ## Endpoints
 
 | Service   | Endpoint  | Description                        |
