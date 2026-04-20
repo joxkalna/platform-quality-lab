@@ -8,6 +8,12 @@ set -euo pipefail
 # CPU: stress-ng burns CPU → pod gets throttled → app responds slower but stays alive
 # Memory: stress-ng allocates beyond 128Mi limit → pod OOMKilled → K8s restarts it
 
+source "$(dirname "$0")/lib/report.sh"
+show_help "${1:-}" \
+  "Usage: resource-pressure.sh <service-name> <cpu|mem|all>" "" \
+  "Injects a stress-ng sidecar to test CPU throttling and OOMKill behaviour." \
+  "Requires a running Kind cluster with the service deployed."
+
 SERVICE="${1:?Usage: resource-pressure.sh <service-name> <cpu|mem|all>}"
 MODE="${2:-all}"
 NAMESPACE="${NAMESPACE:-default}"
@@ -16,6 +22,10 @@ TIMEOUT="${TIMEOUT:-60}"
 PORT=$(kubectl get svc "$SERVICE" -n "$NAMESPACE" -o jsonpath='{.spec.ports[0].port}')
 
 echo "=== Resource Pressure: $SERVICE (mode: $MODE) ==="
+
+report_start "resource-pressure-${MODE}" "$SERVICE"
+
+FAILED=false
 
 # --- Ensure stress-ng image is loaded into Kind ---
 ensure_stress_image() {
@@ -73,12 +83,29 @@ run_cpu_stress() {
   echo "→ Checking app container survived..."
   if kubectl exec "$POD" -c "$SERVICE" -n "$NAMESPACE" -- wget -qO- --timeout=5 "http://localhost:${PORT}/health" &>/dev/null; then
     echo "✓ App still alive — CPU was throttled, not killed"
+    check_pass "cpu-app-alive" "App survived CPU stress — throttled, not killed"
   else
     echo "✗ App unreachable after CPU stress"
+    check_fail "cpu-app-alive" "App unreachable after CPU stress" \
+      "App container stopped responding during CPU pressure" \
+      "CPU throttling should slow the app, not kill it — may indicate a crash from timeout cascade" \
+      "services/${SERVICE}/src/index.ts" \
+      "Check for CPU-sensitive operations that could cascade into failures"
+    FAILED=true
   fi
 
   RESTARTS=$(kubectl get pod "$POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[?(@.name==\"$SERVICE\")].restartCount}")
   echo "→ App container restarts: $RESTARTS (expected: 0)"
+  if [ "$RESTARTS" -eq 0 ]; then
+    check_pass "cpu-zero-restarts" "Zero restarts during CPU stress"
+  else
+    check_fail "cpu-zero-restarts" "App restarted $RESTARTS time(s) during CPU stress" \
+      "App container restarted under CPU pressure" \
+      "Liveness probe may have timed out due to CPU throttling" \
+      "k8s/${SERVICE}.yaml" \
+      "Increase liveness probe timeoutSeconds or CPU limit"
+    FAILED=true
+  fi
 
   remove_sidecar
   echo "✓ CPU throttling test complete"
@@ -115,13 +142,22 @@ run_mem_stress() {
     sleep 1
   done
 
-  if [ "$OOM_DETECTED" = false ]; then
+  if [ "$OOM_DETECTED" = true ]; then
+    check_pass "mem-oomkill-detected" "OOMKill detected — memory limits enforced correctly"
+  else
     echo "⚠ OOMKill not detected within ${TIMEOUT}s — checking pod state..."
     kubectl get pod "$POD" -n "$NAMESPACE" -o wide
+    check_fail "mem-oomkill-detected" "OOMKill not detected within ${TIMEOUT}s" \
+      "stress-ng allocated 256MB but pod was not OOMKilled" \
+      "Memory limits may not be set or may be too generous" \
+      "k8s/${SERVICE}.yaml" \
+      "Verify resources.limits.memory is set and appropriate"
+    FAILED=true
   fi
 
   echo "→ Waiting for deployment to stabilise..."
   kubectl rollout status deployment/"$SERVICE" -n "$NAMESPACE" --timeout="${TIMEOUT}s"
+  check_pass "mem-recovery" "Deployment stabilised after OOMKill"
 
   remove_sidecar
   echo "✓ OOMKill test complete"
@@ -137,5 +173,12 @@ case "$MODE" in
   *) echo "Unknown mode: $MODE (use cpu, mem, or all)"; exit 1 ;;
 esac
 
+report_end
+
 echo ""
-echo "=== Resource Pressure: PASSED ==="
+if [ "$FAILED" = true ]; then
+  echo "=== Resource Pressure: FAILED ==="
+  exit 1
+else
+  echo "=== Resource Pressure: PASSED ==="
+fi

@@ -270,3 +270,7 @@ Prerequisites: Docker running + Kind cluster deployed (`./scripts/deploy-local.s
 # Latency injection
 ./scripts/chaos/latency-injection.sh
 ```
+
+## Where These Experiments Run in Real Orgs
+
+These scripts are staging-grade tools — they work unchanged in any K8s cluster, but you'd never run them against production. See [docs/chaos-environments.md](docs/chaos-environments.md) for the full breakdown: local → staging → production, what tooling real orgs use at each tier, and how our scripts map to AWS FIS, Chaos Mesh, and Istio fault injection.
