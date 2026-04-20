@@ -205,7 +205,7 @@ jobs:
 
       - name: Install BATS
         run: |
-          sudo apt-get update && sudo apt-get install -y bats
+          sudo apt-get update && sudo apt-get install -y bats jq
 
       - name: Run infrastructure tests
         run: npm run test:infra
@@ -214,6 +214,28 @@ jobs:
 
       - name: Run integration tests
         run: npm run test:integration
+
+      # --- Chaos experiments ---
+
+      - name: Run chaos — pod kill
+        run: |
+          ./scripts/chaos/pod-kill.sh service-a
+          ./scripts/chaos/pod-kill.sh service-b
+
+      - name: Run chaos — dependency failure
+        run: ./scripts/chaos/dependency-failure.sh
+
+      - name: Chaos experiment summary
+        if: always()
+        run: ./scripts/chaos/render-summary.sh >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload chaos reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaos-reports
+          path: scripts/chaos/reports/
+          if-no-files-found: ignore
 
       # --- Teardown ---
 
