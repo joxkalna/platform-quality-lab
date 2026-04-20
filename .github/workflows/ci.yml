@@ -194,6 +194,7 @@ jobs:
           kind load docker-image service-a:latest --name platform-lab
           kind load docker-image service-b:latest --name platform-lab
           docker pull alexeiled/stress-ng:latest
+          docker pull node:24-alpine
           kind load docker-image alexeiled/stress-ng:latest --name platform-lab
           kind load docker-image node:24-alpine --name platform-lab
 
