@@ -100,7 +100,16 @@ check_fail() {
 
 # Trap to ensure report is written even if the script crashes mid-run
 _report_trap() {
+  local exit_code=$?
   if [[ -n "$_REPORT_EXPERIMENT" && -n "$_REPORT_START_MS" ]]; then
+    # If script crashed (non-zero exit) with no failed checks, add a crash marker
+    local has_failures
+    has_failures=$(echo "$_REPORT_CHECKS" | jq '[.[] | select(.passed == false)] | length')
+    if [[ $exit_code -ne 0 && "$has_failures" -eq 0 ]]; then
+      check_fail "script-crash" "Script exited with code $exit_code before completing" \
+        "Script crashed before all checks could run" \
+        "Check CI logs for the error that caused the early exit"
+    fi
     report_end
   fi
 }

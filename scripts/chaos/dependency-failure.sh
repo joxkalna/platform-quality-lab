@@ -40,7 +40,17 @@ echo "--- Phase 2: Observe $UPSTREAM ---"
 
 # 2a. Health (liveness) — should pass, no downstream dependency
 echo "→ [2a] /health (liveness)..."
-if kubectl exec "$UPSTREAM_POD" -n "$NAMESPACE" -- wget -qO- --timeout=5 "http://localhost:${UPSTREAM_PORT}/health" 2>&1 | grep -q "ok"; then
+# Re-resolve pod — original may have been replaced during downstream kill
+UPSTREAM_POD=$(kubectl get pods -l "app=$UPSTREAM" -n "$NAMESPACE" --field-selector="status.phase=Running" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+if [ -z "$UPSTREAM_POD" ]; then
+  echo "  ✗ FAIL — no running $UPSTREAM pod found"
+  check_fail "health-liveness" "No running $UPSTREAM pod found after downstream kill" \
+    "All $UPSTREAM pods disappeared when $DOWNSTREAM was killed" \
+    "Liveness probe may depend on downstream, causing K8s to kill the pod" \
+    "k8s/${UPSTREAM}.yaml" \
+    "Ensure livenessProbe does not check downstream dependencies"
+  FAILED=true
+elif kubectl exec "$UPSTREAM_POD" -n "$NAMESPACE" -- wget -qO- --timeout=5 "http://localhost:${UPSTREAM_PORT}/health" 2>&1 | grep -q "ok"; then
   echo "  ✓ PASS — /health returns ok"
   check_pass "health-liveness" "/health returns ok (no downstream dependency)"
 else
@@ -55,6 +65,7 @@ fi
 
 # 2b. Data endpoint — should return 502, not hang
 echo "→ [2b] /data (should fail gracefully)..."
+UPSTREAM_POD=$(kubectl get pods -l "app=$UPSTREAM" -n "$NAMESPACE" --field-selector="status.phase=Running" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
 DATA_RESPONSE=$(kubectl exec "$UPSTREAM_POD" -n "$NAMESPACE" -- wget -qO- --timeout=10 "http://localhost:${UPSTREAM_PORT}/data" 2>&1) || true
 if echo "$DATA_RESPONSE" | grep -qi "error\|fail\|502"; then
   echo "  ✓ PASS — /data returned error (graceful degradation)"
@@ -94,7 +105,8 @@ else
 fi
 
 # 2d. Pod didn't crash
-RESTARTS=$(kubectl get pod "$UPSTREAM_POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[0].restartCount}")
+UPSTREAM_POD=$(kubectl get pods -l "app=$UPSTREAM" -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+RESTARTS=$(kubectl get pod "$UPSTREAM_POD" -n "$NAMESPACE" -o jsonpath="{.status.containerStatuses[0].restartCount}" 2>/dev/null || echo "0")
 echo "→ [2d] Restarts: $RESTARTS"
 if [ "$RESTARTS" -eq 0 ]; then
   echo "  ✓ PASS — zero restarts"
