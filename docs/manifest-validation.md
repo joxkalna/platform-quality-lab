@@ -299,6 +299,140 @@ import { rules } from '@joxkalna/platform-quality-utils/manifest-validation'
 import { goldenSetRunner } from '@joxkalna/platform-quality-utils/ai-assertions'
 ```
 
+#### Workspace Consumption Patterns
+
+Once the package lives in `packages/`, there are several ways to consume it — locally during development, in CI, and from other projects. Each has trade-offs.
+
+##### Pattern A: npm/yarn workspaces (local + CI)
+
+The package lives inside the monorepo. The root `package.json` declares workspaces:
+
+```json
+{
+  "workspaces": ["packages/*", "services/*"]
+}
+```
+
+Orchestrators in `scripts/` import from the package by name. npm resolves it to the local source automatically — no `npm link`, no relative paths, no publish step during development.
+
+```typescript
+// scripts/validate-manifests.ts
+import { rules } from '@joxkalna/platform-quality-utils/manifest-validation'
+```
+
+Locally and in CI, this resolves to `packages/platform-quality-utils/`. Externally, other projects install the published version from GitHub Packages. Same import path, different resolution.
+
+**When this fits:** You own the monorepo and the package. Most of the consumers are inside the same repo. This is the default starting point.
+
+##### Pattern B: Beta branch publishing (cross-repo development)
+
+When you need a consumer in a different repo to test your package changes before merging — e.g. you're changing a manifest validation rule and want to verify it works in another project's CI before the change hits main.
+
+The pattern: every branch build publishes a pre-release version to the registry automatically.
+
+```
+main version:   1.5.2
+branch publish:  1.5.2-beta.517   (where 517 is the CI job number or commit count)
+```
+
+The CI pipeline handles this:
+
+```yaml
+publish-beta:
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
+  script:
+    - BETA_VERSION="$(node -p "require('./package.json').version")-beta.${CI_PIPELINE_IID}"
+    - npm version $BETA_VERSION --no-git-tag-version
+    - npm publish --tag beta
+```
+
+The consumer pins to the beta version to test:
+
+```json
+{
+  "dependencies": {
+    "@myorg/platform-quality-utils": "1.5.2-beta.517"
+  }
+}
+```
+
+Once verified, the consumer reverts to the stable version. The package author merges to main, which publishes the real `1.5.3`.
+
+**When this fits:** Cross-repo development where multiple people or CI pipelines need to test against your changes. Works in CI (unlike `npm link`), provides a real version (unlike symlinks), and doesn't pollute the `latest` tag (beta versions are separate).
+
+**Why not `npm link`:** `npm link` creates a local symlink — fragile, machine-specific, blown away by `npm install`, doesn't work in CI. Beta publishing gives you a real installable version that works everywhere. Use `npm link` only for quick 5-minute local checks, never as a workflow.
+
+##### Pattern C: Published package (external consumers)
+
+The package is published to GitHub Packages. External consumers install it like any npm package.
+
+```bash
+# Consumer adds .npmrc
+echo "@joxkalna:registry=https://npm.pkg.github.com" >> .npmrc
+
+# Consumer installs
+npm install @joxkalna/platform-quality-utils
+```
+
+Versioned, immutable, cacheable. This is the production consumption path.
+
+**When this fits:** Other teams or projects consume the package. You want version pinning, changelogs, and breaking change control.
+
+##### Pattern D: Git dependency (no registry needed)
+
+If you don't want to set up GitHub Packages yet, consumers can install directly from the Git repo:
+
+```json
+{
+  "dependencies": {
+    "@joxkalna/platform-quality-utils": "github:joxkalna/platform-quality-lab#main"
+  }
+}
+```
+
+Or pin to a specific commit:
+
+```json
+{
+  "dependencies": {
+    "@joxkalna/platform-quality-utils": "github:joxkalna/platform-quality-lab#abc1234"
+  }
+}
+```
+
+**When this fits:** Early adoption, one or two consumers, you don't want registry overhead yet. No versioning — consumers pin to a branch or commit.
+
+**Limitation:** Only works if the package is at the repo root or you use a build step. With the package in `packages/`, consumers would need the repo to use workspaces or you'd need to publish a built artifact.
+
+##### Pattern E: File dependency (same machine, no network)
+
+For local-only consumption without any registry or Git:
+
+```json
+{
+  "dependencies": {
+    "@joxkalna/platform-quality-utils": "file:../platform-quality-lab/packages/platform-quality-utils"
+  }
+}
+```
+
+npm copies (or symlinks) the local directory into `node_modules`.
+
+**When this fits:** Quick local experiments. Never use this in CI or shared environments — the path is machine-specific.
+
+##### Progression
+
+| Stage | Consumption pattern | Why |
+|---|---|---|
+| Now (package in `scripts/`) | Direct imports, no package | Nothing to consume yet |
+| Extraction (package in `packages/`) | Workspaces (Pattern A) | Local resolution, zero config |
+| Cross-repo development | Beta branch publishing (Pattern B) | Real version, works in CI, no symlink fragility |
+| First external consumer | Git dependency (Pattern D) | No registry setup needed |
+| Multiple external consumers | Published to GitHub Packages (Pattern C) | Versioned, immutable, production-grade |
+
+Start with workspaces. Move to published packages when the second project needs it.
+
 #### When to pull the trigger
 
 - **Not now** — one tool, still evolving
