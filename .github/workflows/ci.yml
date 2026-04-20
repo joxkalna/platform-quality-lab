@@ -233,8 +233,8 @@ jobs:
       - name: Run chaos — dependency failure
         run: ./scripts/chaos/dependency-failure.sh
 
-      - name: Run chaos — resource pressure (CPU only — OOM tested locally)
-        run: ./scripts/chaos/resource-pressure.sh service-a cpu
+      - name: Run chaos — resource pressure
+        run: ./scripts/chaos/resource-pressure.sh service-a all
 
       - name: Run chaos — latency injection
         run: ./scripts/chaos/latency-injection.sh
