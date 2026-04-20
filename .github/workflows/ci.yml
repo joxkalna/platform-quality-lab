@@ -193,6 +193,9 @@ jobs:
         run: |
           kind load docker-image service-a:latest --name platform-lab
           kind load docker-image service-b:latest --name platform-lab
+          docker pull alexeiled/stress-ng:latest
+          kind load docker-image alexeiled/stress-ng:latest --name platform-lab
+          kind load docker-image node:24-alpine --name platform-lab
 
       - name: Deploy to Kind
         run: |
@@ -229,13 +232,8 @@ jobs:
       - name: Run chaos — dependency failure
         run: ./scripts/chaos/dependency-failure.sh
 
-      - name: Load stress-ng image into Kind
-        run: |
-          docker pull alexeiled/stress-ng:latest
-          kind load docker-image alexeiled/stress-ng:latest --name platform-lab
-
-      - name: Run chaos — resource pressure
-        run: ./scripts/chaos/resource-pressure.sh service-a all
+      - name: Run chaos — resource pressure (CPU only — OOM tested locally)
+        run: ./scripts/chaos/resource-pressure.sh service-a cpu
 
       - name: Run chaos — latency injection
         run: ./scripts/chaos/latency-injection.sh
