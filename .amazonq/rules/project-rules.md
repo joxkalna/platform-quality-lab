@@ -142,6 +142,30 @@ This is how production observability pipelines are tested — a test harness sen
 | Snapshot/regression tests | Output stability across code changes | When prompt or model changes could silently degrade quality |
 | Contract tests (Pact) | API shape agreement between services | Always — for every service-to-service boundary |
 
+## Phase 6 Current Progress
+Branch: `phase6/ai-service`
+
+**Done:**
+- Service C scaffolded (Express + Zod config + Ollama LLM client)
+  - `services/service-c/` — src/config.ts, src/llm.ts, src/index.ts, Dockerfile, package.json, tsconfig.json
+  - `k8s/service-c.yaml` — 2 replicas, resource limits, separate readiness (checks LLM) / liveness (/health)
+  - Endpoints: `POST /classify` (text → category + confidence), `GET /health`, `GET /ready`
+  - Zod validates all config at startup (LLM_ENDPOINT, model, temperature, timeout)
+  - Exports `app` for Pact provider verification
+- Dependencies updated across all services (Express 5, TypeScript 6, @types/node 25)
+- Dependabot added for automated dependency scanning
+- Project rules updated with Phase 6 plans (k6, Pact evolution, pipeline integration tests)
+
+**Next:**
+- Wire Service A to call Service C (`/classify` endpoint via `SERVICE_C_URL` env var)
+- Add Pact consumer test in Service A for Service C
+- Initialise Service C as provider on PactFlow
+- Add provider verification to Service C
+- Update CI pipeline (build, load, deploy Service C)
+- Update deploy-local.sh for Service C
+- Integration tests for Service C
+- Deliberately break a contract to see Pact catch it
+
 ## Coding Style
 - Clean, production-style code — use real tools and patterns as large orgs would
 - Keep services simple Express apps — the services are simple on purpose, the infrastructure around them is not
