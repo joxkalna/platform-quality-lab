@@ -76,6 +76,17 @@ EOF
 echo "→ Saving original SERVICE_B_URL..."
 ORIGINAL_URL=$(kubectl get deployment service-a -n "$NAMESPACE" -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="SERVICE_B_URL")].value}')
 
+# Ensure service-a is restored even if the script crashes mid-run
+cleanup() {
+  echo "→ Cleanup: restoring service-a..."
+  kubectl set env deployment/service-a -n "$NAMESPACE" SERVICE_B_URL="$ORIGINAL_URL" 2>/dev/null || true
+  kubectl rollout status deployment/service-a -n "$NAMESPACE" --timeout="${TIMEOUT}s" 2>/dev/null || true
+  kubectl delete pod slow-server -n "$NAMESPACE" --ignore-not-found --wait=false 2>/dev/null || true
+  kubectl delete svc slow-server -n "$NAMESPACE" --ignore-not-found 2>/dev/null || true
+  _report_trap
+}
+trap cleanup EXIT
+
 point_to_slow_server() {
   kubectl set env deployment/service-a -n "$NAMESPACE" SERVICE_B_URL="http://slow-server:3001"
   kubectl rollout status deployment/service-a -n "$NAMESPACE" --timeout="${TIMEOUT}s"
@@ -133,11 +144,7 @@ else
   FAILED=true
 fi
 
-# === Cleanup ===
-echo ""
-echo "→ Restoring service-a..."
-restore_service_a
-echo "✓ Restored"
+# === Cleanup handled by EXIT trap ===
 
 report_end
 
