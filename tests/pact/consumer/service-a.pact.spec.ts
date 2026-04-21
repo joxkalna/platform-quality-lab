@@ -56,7 +56,7 @@ describe('Service A → Service C', () => {
         builder.headers({ 'Content-Type': 'application/json; charset=utf-8' })
         builder.jsonBody({
           category: MatchersV3.string('critical'),
-          confidence: MatchersV3.decimal(0.95),
+          confidence: MatchersV3.string('0.95'),
           model: MatchersV3.string('llama3.2:1b'),
         })
       })
@@ -70,7 +70,7 @@ describe('Service A → Service C', () => {
 
         expect(response.status).toBe(200)
         expect(body.category).toEqual(expect.any(String))
-        expect(body.confidence).toEqual(expect.any(Number))
+        expect(body.confidence).toEqual(expect.any(String))
         expect(body.model).toEqual(expect.any(String))
       })
   })
