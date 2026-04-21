@@ -3,6 +3,7 @@ import { loadConfig } from "./config";
 import { classify } from "./llm";
 
 const config = loadConfig();
+
 export const app = express();
 app.use(express.json());
 
@@ -41,11 +42,3 @@ app.post("/classify", async (req, res) => {
     res.status(502).json({ error: message });
   }
 });
-
-if (require.main === module) {
-  app.listen(config.port, () => {
-    console.log(`service-c listening on port ${config.port}`);
-    console.log(`  LLM endpoint: ${config.llmEndpoint}`);
-    console.log(`  Model: ${config.llmModel}`);
-  });
-}
