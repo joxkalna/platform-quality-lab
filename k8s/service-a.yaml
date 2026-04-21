@@ -23,6 +23,8 @@ spec:
           env:
             - name: SERVICE_B_URL
               value: "http://service-b:3001"
+            - name: SERVICE_C_URL
+              value: "http://service-c:3002"
           readinessProbe:
             httpGet:
               path: /ready

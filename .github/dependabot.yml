@@ -26,6 +26,14 @@ updates:
       all-dependencies:
         patterns: ["*"]
 
+  - package-ecosystem: "npm"
+    directory: "/services/service-c"
+    schedule:
+      interval: "weekly"
+    groups:
+      all-dependencies:
+        patterns: ["*"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
