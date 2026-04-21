@@ -1,13 +1,17 @@
-// Set required env vars before importing app — Zod validates config on import.
-// Workaround: app.ts reads env vars at module level. The future app factory pattern
-// (see project-rules.md → Future Improvements) will remove this by passing config
-// as a parameter instead of reading process.env on import.
-process.env.LLM_ENDPOINT = process.env.LLM_ENDPOINT || 'http://localhost:11434'
-
 import http from 'http'
 import { Verifier } from '@pact-foundation/pact'
-import { app } from '../../../services/service-c/src/app'
 import { StubbedIntegrations } from '../stubs'
+
+// Set required env vars before importing app — Zod validates config on import.
+// vi.hoisted runs before imports are resolved, ensuring the env var exists
+// when app.ts calls loadConfig().
+// Workaround: the future app factory pattern (see project-rules.md → Future
+// Improvements) will remove this by passing config as a parameter.
+vi.hoisted(() => {
+  process.env.LLM_ENDPOINT = process.env.LLM_ENDPOINT || 'http://localhost:11434'
+})
+
+import { app } from '../../../services/service-c/src/app'
 
 describe('Pact Verification — service-c', () => {
   let server: http.Server
