@@ -53,5 +53,5 @@ const parseResponse = (raw: string): { category: string; confidence: number } =>
     throw new Error(`Invalid confidence "${parsed.confidence}" — expected number between 0 and 1`);
   }
 
-  return { category: parsed.category, confidence };
+  return { category: parsed.category, confidence: `${confidence}` };
 };

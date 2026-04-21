@@ -6,7 +6,7 @@
  */
 
 export const classifyCriticalResponse = {
-  response: '{"category": "critical", "confidence": 0.95}',
+  response: '{"category": "critical", "confidence": "0.95"}',
   model: 'llama3.2:1b',
   created_at: '2024-01-01T00:00:00Z',
   done: true,
