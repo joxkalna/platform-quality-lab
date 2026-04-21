@@ -60,6 +60,7 @@ Each service follows the same structure: `app.ts` (pure Express app) + `server.t
 | Service A | `GET /health` | Health check                     |
 | Service A | `GET /ready`  | Readiness (checks Service B)     |
 | Service A | `GET /data`   | Calls Service B, returns result  |
+| Service A | `POST /classify` | Proxies to Service C, returns classification |
 | Service B | `GET /health` | Health check                     |
 | Service B | `GET /info`   | Returns service data             |
 | Service C | `GET /health` | Health check                     |

@@ -52,11 +52,13 @@ echo "  Version:     $COMMIT"
 # at the same version instead of against what's deployed.
 # This avoids the version mismatch when the deployed version (from a
 # previous pipeline run) differs from the current commit.
-echo "→ Checking service-a + service-b compatibility..."
+echo "→ Checking service-a + service-b + service-c compatibility..."
 npx pact-broker can-i-deploy \
   --pacticipant service-a \
   --version "$COMMIT" \
   --pacticipant service-b \
+  --version "$COMMIT" \
+  --pacticipant service-c \
   --version "$COMMIT" \
   --broker-base-url "$BROKER_URL" \
   --broker-token "$TOKEN"
@@ -66,7 +68,7 @@ echo "✓ Safe to deploy"
 echo ""
 echo "=== Recording Deployments ==="
 
-for SERVICE in service-a service-b; do
+for SERVICE in service-a service-b service-c; do
   echo "→ Recording $SERVICE deployment to $ENV..."
   npx pact-broker record-deployment \
     --pacticipant "$SERVICE" \

@@ -27,6 +27,7 @@ jobs:
           npm ci
           cd services/service-a && npm ci
           cd ../service-b && npm ci
+          cd ../service-c && npm ci
 
       - name: Cache node_modules
         uses: actions/cache/save@v4
@@ -35,6 +36,8 @@ jobs:
             node_modules
             services/service-a/node_modules
             services/service-b/node_modules
+            services/service-c/node_modules
+            services/service-c/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
   lint:
@@ -54,6 +57,7 @@ jobs:
             node_modules
             services/service-a/node_modules
             services/service-b/node_modules
+            services/service-c/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - name: Lint
@@ -76,12 +80,14 @@ jobs:
             node_modules
             services/service-a/node_modules
             services/service-b/node_modules
+            services/service-c/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - name: Type check
         run: |
           npm run typecheck:a
           npm run typecheck:b
+          npm run typecheck:c
 
   validate-k8s:
     needs: install
@@ -100,6 +106,7 @@ jobs:
             node_modules
             services/service-a/node_modules
             services/service-b/node_modules
+            services/service-c/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - uses: yokawasa/action-setup-kube-tools@v0.13.4
@@ -130,6 +137,7 @@ jobs:
             node_modules
             services/service-a/node_modules
             services/service-b/node_modules
+            services/service-c/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - name: Create .env from secrets
@@ -173,6 +181,7 @@ jobs:
             node_modules
             services/service-a/node_modules
             services/service-b/node_modules
+            services/service-c/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - name: Install Kind
@@ -188,11 +197,13 @@ jobs:
         run: |
           docker build -t service-a:latest services/service-a
           docker build -t service-b:latest services/service-b
+          docker build -t service-c:latest services/service-c
 
       - name: Load images into Kind
         run: |
           kind load docker-image service-a:latest --name platform-lab
           kind load docker-image service-b:latest --name platform-lab
+          kind load docker-image service-c:latest --name platform-lab
           docker pull alexeiled/stress-ng:latest
           docker pull node:24-alpine
           kind load docker-image alexeiled/stress-ng:latest --name platform-lab
@@ -201,8 +212,10 @@ jobs:
       - name: Deploy to Kind
         run: |
           kubectl apply -f k8s/service-b.yaml
+          kubectl apply -f k8s/service-c.yaml
           kubectl apply -f k8s/service-a.yaml
           kubectl rollout status deployment/service-b --timeout=60s
+          kubectl rollout status deployment/service-c --timeout=60s
           kubectl rollout status deployment/service-a --timeout=60s
 
       # --- Infrastructure tests (BATS) ---
