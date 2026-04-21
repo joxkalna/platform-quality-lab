@@ -39,20 +39,24 @@ fi
 echo "→ Building Docker images..."
 docker build -t service-a:latest "$ROOT_DIR/services/service-a"
 docker build -t service-b:latest "$ROOT_DIR/services/service-b"
+docker build -t service-c:latest "$ROOT_DIR/services/service-c"
 
 # 4. Load into Kind
 echo "→ Loading images into Kind..."
 kind load docker-image service-a:latest --name "$CLUSTER_NAME"
 kind load docker-image service-b:latest --name "$CLUSTER_NAME"
+kind load docker-image service-c:latest --name "$CLUSTER_NAME"
 
-# 5. Deploy (B first — A depends on B)
+# 5. Deploy (B and C first — A depends on both)
 echo "→ Deploying services..."
 kubectl apply -f "$ROOT_DIR/k8s/service-b.yaml"
+kubectl apply -f "$ROOT_DIR/k8s/service-c.yaml"
 kubectl apply -f "$ROOT_DIR/k8s/service-a.yaml"
 
 # 6. Wait for rollout
 echo "→ Waiting for pods to be ready..."
 kubectl rollout status deployment/service-b --timeout=60s
+kubectl rollout status deployment/service-c --timeout=60s
 kubectl rollout status deployment/service-a --timeout=60s
 
 # 7. Verify
