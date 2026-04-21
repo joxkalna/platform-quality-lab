@@ -125,8 +125,10 @@ jobs:
         run: npm run validate:manifests
 
   # Pact contract tests — runs against persistent PactFlow Broker
+  # Skip with [skip pact] in commit message (emergency deployments only)
   pact:
     needs: install
+    if: "!contains(github.event.head_commit.message, '[skip pact]')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -173,6 +175,7 @@ jobs:
   # Kind cluster deploy + infrastructure/integration tests
   deploy-and-test:
     needs: [lint, typecheck, validate-k8s, pact]
+    if: always() && needs.lint.result == 'success' && needs.typecheck.result == 'success' && needs.validate-k8s.result == 'success' && (needs.pact.result == 'success' || needs.pact.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
