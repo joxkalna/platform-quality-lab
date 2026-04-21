@@ -1,6 +1,6 @@
 import http from 'http'
 import { Verifier } from '@pact-foundation/pact'
-import { app } from '../../../services/service-b/src/index'
+import { app } from '../../../services/service-b/src/app'
 
 describe('Pact Verification — service-b', () => {
   let server: http.Server

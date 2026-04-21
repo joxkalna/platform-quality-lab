@@ -23,13 +23,88 @@ Treat this project as if it's a real service running in a large organisation. Us
 - **Phase 2** ✅ Local cluster + deploy — Kind cluster, metrics-server, build/load images, deploy, verify service-to-service comms
 - **Phase 3** ✅ CI pipeline — GitHub Actions (lint, config validation, contract checks, integration tests)
 - **Phase 4** ✅ Failure injection — pod kills, resource pressure, dependency failure, latency injection
-- **Phase 5** Guardrails — CI gates, chaos reporting with diagnostics, manifest validation, contract testing, code quality
+- **Phase 5** ✅ Guardrails — CI gates, chaos reporting with diagnostics, manifest validation, contract testing, code quality
   - ✅ Contract testing (Pact) — consumer/provider tests, PactFlow Broker, can-i-deploy gate in CI
-  - Manifest validation, chaos CI gates, code quality gates — remaining
-- **Phase 6** AI service — add a new service wrapping an LLM API, deploy to Kind, wire into service mesh
+  - ✅ Manifest validation — CI gate that parses K8s YAML and asserts replicas, limits, probes
+  - ✅ Chaos reporting — structured JSON reports with diagnostics from chaos scripts
+  - ✅ Chaos CI gates — all chaos experiments run in CI, fail pipeline if services don't survive
+  - ✅ Code quality gates — custom ESLint rules for fetch timeouts and error handling
+- **Phase 6** AI service — add a new service wrapping an LLM API, deploy to Kind, wire into service mesh, load test with k6
 - **Phase 7** AI quality guardrails — non-deterministic assertion patterns, golden set benchmarks, accuracy thresholds as CI gates, consistency tests
 
-## Phase 6 Testing Pattern — Pipeline Integration Tests
+## Phase 6 Load Testing with k6
+k6 is deferred to Phase 6 because Services A and B are HTTP pass-throughs with minimal resource usage (11-15Mi memory, 1-13m CPU). Load testing them confirms they handle concurrent requests but there's little to discover.
+
+Service C (AI) changes this — it has real processing (prompt construction, LLM calls, response parsing, confidence scoring) that consumes meaningful CPU and memory. k6 becomes valuable for:
+- **Performance baselines** — what's the p95 response time for classification under normal load?
+- **Breaking point discovery** — at what concurrency does Service C OOMKill or start timing out?
+- **Regression detection** — did this prompt change make the service 2x slower?
+- **Chaos + load combined** — does the system perform under load WHILE a pod dies? This is the real production scenario
+
+**k6 framework structure**:
+```
+tests/load/
+├── config/
+│   ├── smoke-test.json          # Single iteration, verify scripts work
+│   ├── load-test.json           # Sustained load at expected traffic levels
+│   └── stress-test.json         # Push beyond limits to find breaking point
+├── scenarios/
+│   ├── health-check.ts          # Baseline — hit /health on all services
+│   ├── data-pipeline.ts         # Service A → B chain under load
+│   └── ai-classification.ts     # Service C processing under load
+├── utils/
+│   └── thresholds.ts            # Shared threshold definitions
+└── k6.config.ts
+```
+
+The framework follows a 3-layer separation common in production k6 setups:
+- **Scenarios** — user journeys composed of transactions (e.g. "browse → classify → rate")
+- **Transactions** — logical steps composed of requests (e.g. "classify" = call Service C, parse response)
+- **Requests** — single HTTP calls with check assertions (e.g. `POST /classify` with status + body checks)
+
+Same request function reused across transactions, same transaction reused across scenarios. Load profiles (thresholds, VU counts, durations) live in external JSON configs — swap profiles without changing test code.
+
+**CI integration:**
+- Smoke test on every push (single iteration — validates scripts work)
+- Load test on merge to main (sustained load — catches performance regressions)
+- Stress test on-demand or nightly (finds breaking points — too slow for every push)
+
+**Regression detection:**
+Compare current results against baseline metrics with a threshold (e.g. 10% deviation). If p95 latency increases by more than 10% from the previous run, the pipeline fails. Same pattern as the golden set accuracy threshold in Phase 7 — a ratchet that prevents silent degradation.
+
+## Phase 6 Pact Evolution
+Adding Service C creates a new service boundary and an opportunity to exercise real-world Pact scenarios that don't come up when you only have two services.
+
+**New contracts:**
+- Service A (consumer) → Service C (provider) — new pact for `/classify`
+- Service A (consumer) → Service B (provider) — unchanged
+
+**Scenarios to exercise:**
+
+| Scenario | What happens | What it teaches |
+|---|---|---|
+| Add new provider | Initialise Service C on PactFlow, consumer writes first pact, provider verifies | Full provider onboarding workflow (second time — reinforces the process) |
+| Backwards compatible change | Service C adds a new field to response — consumer pact doesn't break | Pact allows extra fields — additive changes are safe |
+| Breaking change (remove field) | Service C drops a field the consumer depends on | Pact catches it — can-i-deploy blocks the deployment |
+| Breaking change (change type) | Service C changes `confidence` from number to string | Pact catches the type mismatch before it reaches production |
+| Consumer starts using new field | Service A starts asserting on a new field from Service C | Consumer-driven — new pact published, provider must verify |
+| Deprecate an endpoint | Service B wants to remove `/info` | can-i-deploy blocks it because Service A still depends on it |
+
+The goal is to see Pact catch a breaking change in CI — not just read about it. Deliberately break a contract, watch can-i-deploy block the deployment, then fix it. That's the learning that sticks.
+
+**Order:**
+1. Build Service C with `/classify` endpoint
+2. Add Pact consumer test in Service A for Service C
+3. Initialise Service C as provider on PactFlow
+4. Add provider verification to Service C
+5. Wire into CI (publish, verify, can-i-deploy for all 3 services)
+6. Deliberately break a contract — observe Pact catching it
+7. Fix the contract — observe can-i-deploy going green
+
+**Monorepo vs reality:**
+All three services stay in one repo for Phase 6. This simplifies CI (one pipeline, one commit SHA for all services) but doesn't reflect production where each service would be its own repo with its own pipeline. The Pact patterns (consumer tests, provider verification, can-i-deploy, record-deployment) are identical in both setups — only the trigger changes. In a monorepo, verification runs in the same pipeline. In multi-repo, a webhook triggers the provider's pipeline when a consumer publishes a new pact. The monorepo `can-i-deploy` workaround (checking both services at the same commit) is already documented in `scripts/pact/can-i-deploy.sh` with the multi-repo equivalent in comments. See `docs/pact/06-repo-separation.md` for the full mapping.
+
+## Phase 6 Pipeline Integration Tests
 When Service C (AI) is added, it introduces a real processing pipeline: prompt construction → LLM call → response parsing → confidence scoring. This is the first service with transformation logic worth testing end-to-end, not just at the HTTP layer.
 
 **Pattern:** Spin up real infrastructure in a container, send real input through it, assert on what comes out the other side. This is how production observability pipelines are tested — a test harness starts the real service, sends data in, and a mock exporter on the output side captures what was produced.
@@ -66,6 +141,30 @@ This is how production observability pipelines are tested — a test harness sen
 | OpenTelemetry trace assertions | Internal processing steps, latency per stage, attribute correctness | When you need to know *how* the service processed the request, not just the result |
 | Snapshot/regression tests | Output stability across code changes | When prompt or model changes could silently degrade quality |
 | Contract tests (Pact) | API shape agreement between services | Always — for every service-to-service boundary |
+
+## Phase 6 Current Progress
+Branch: `phase6/ai-service`
+
+**Done:**
+- Service C scaffolded (Express + Zod config + Ollama LLM client)
+  - `services/service-c/` — src/config.ts, src/llm.ts, src/index.ts, Dockerfile, package.json, tsconfig.json
+  - `k8s/service-c.yaml` — 2 replicas, resource limits, separate readiness (checks LLM) / liveness (/health)
+  - Endpoints: `POST /classify` (text → category + confidence), `GET /health`, `GET /ready`
+  - Zod validates all config at startup (LLM_ENDPOINT, model, temperature, timeout)
+  - Exports `app` for Pact provider verification
+- Dependencies updated across all services (Express 5, TypeScript 6, @types/node 25)
+- Dependabot added for automated dependency scanning
+- Project rules updated with Phase 6 plans (k6, Pact evolution, pipeline integration tests)
+
+**Next:**
+- Wire Service A to call Service C (`/classify` endpoint via `SERVICE_C_URL` env var)
+- Add Pact consumer test in Service A for Service C
+- Initialise Service C as provider on PactFlow
+- Add provider verification to Service C
+- Update CI pipeline (build, load, deploy Service C)
+- Update deploy-local.sh for Service C
+- Integration tests for Service C
+- Deliberately break a contract to see Pact catch it
 
 ## Coding Style
 - Clean, production-style code — use real tools and patterns as large orgs would
@@ -171,18 +270,18 @@ Phase 5 takes the learnings from Phase 4 chaos experiments and encodes them as a
 Phase 5 is large — split into feature branches:
 - `phase5/contract-testing` ✅ — Pact consumer-driven contract tests between Service A and B, PactFlow Broker, can-i-deploy CI gate
 - `phase5/manifest-validation` ✅ — CI gate that parses K8s YAML and asserts: replicas ≥ 2, resource limits set, readiness ≠ liveness for services with dependencies
-- `phase5/chaos-reporting` — (next) structured reports from chaos scripts with diagnostics that point at specific code/config when failures occur (file, line, what's missing)
-- `phase5/chaos-ci-gates` — run chaos scripts after deploy in CI, fail the pipeline if services don't survive. Depends on chaos-reporting for structured output
-- `phase5/code-quality-gates` — lint/review rules for outbound HTTP timeouts, error handling patterns
-- `phase5/notifications-dashboard` — (last) Slack/webhook alerts on guardrail failures + visibility dashboard. Needs other gates to exist first
+- `phase5/chaos-reporting` ✅ — structured reports from chaos scripts with diagnostics that point at specific code/config when failures occur
+- `phase5/chaos-ci-gates` ✅ — run chaos scripts after deploy in CI, fail the pipeline if services don't survive
+- `phase5/code-quality-gates` ✅ — custom ESLint plugin for outbound HTTP timeouts, error handling patterns
+- `phase5/notifications-dashboard` — (optional) Slack/webhook alerts on guardrail failures + visibility dashboard
 
 ### Phase 5 Order
 1. ✅ Contract testing (Pact)
 2. ✅ Manifest validation
-3. Chaos reporting — give chaos scripts structured JSON output with diagnostics
-4. Chaos CI gates — wire structured chaos scripts into CI, fail pipeline if services don't survive
-5. Code quality gates — ESLint rules / custom scanner for HTTP timeouts, error handling
-6. Notifications/dashboard — visibility layer on top of all gates
+3. ✅ Chaos reporting — structured JSON output with diagnostics, crash-safe trap, GitHub Actions summary
+4. ✅ Chaos CI gates — all 4 experiments in CI, cleanup traps, artifact upload
+5. ✅ Code quality gates — custom ESLint plugin with fetch-requires-timeout and fetch-requires-error-handling
+6. Notifications/dashboard — visibility layer on top of all gates (optional — can defer to after Phase 6)
 
 ## Package Extraction Plan
 All quality tooling in `scripts/` is structured for future extraction into a shared npm package published to GitHub Packages.

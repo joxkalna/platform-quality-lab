@@ -241,7 +241,7 @@ jobs:
 
       - name: Chaos experiment summary
         if: always()
-        run: ./scripts/chaos/render-summary.sh >> $GITHUB_STEP_SUMMARY
+        run: npx tsx scripts/chaos/render-summary.ts >> $GITHUB_STEP_SUMMARY
 
       - name: Upload chaos reports
         if: always()

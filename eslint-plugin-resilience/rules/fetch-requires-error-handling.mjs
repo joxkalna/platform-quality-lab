@@ -5,12 +5,14 @@
  * process instead of returning a graceful error response. The pod restarts
  * instead of degrading gracefully.
  *
- * This rule enforces that every fetch() call is wrapped in a try/catch block
- * or has a .catch() handler.
+ * This rule enforces that every fetch() call is wrapped in a try/catch block,
+ * has a .catch() handler, or lives in a utility function that throws intentionally
+ * (the caller is expected to catch).
  *
- * ✅ try { await fetch(url, opts) } catch { ... }
- * ✅ fetch(url, opts).catch(...)
- * ❌ await fetch(url, opts)  // bare, no error handling
+ * try { await fetch(url, opts) } catch { ... }
+ * fetch(url, opts).catch(...)
+ * async function classify() { const r = await fetch(...); ... throw new Error(...) }
+ * await fetch(url, opts)  // bare, no error handling, no throw in function
  */
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -43,19 +45,26 @@ export default {
           return;
         }
 
-        // Walk up the AST to find a try/catch
+        // Walk up the AST to find a try/catch or function boundary
         let current = node.parent;
+        let enclosingFunction = null;
         while (current) {
           if (current.type === "TryStatement") return;
-          // Stop at function boundaries
           if (
             current.type === "FunctionDeclaration" ||
             current.type === "FunctionExpression" ||
             current.type === "ArrowFunctionExpression"
           ) {
+            enclosingFunction = current;
             break;
           }
           current = current.parent;
+        }
+
+        // If the enclosing function contains a throw statement, it's a utility
+        // that propagates errors intentionally — the caller is expected to catch
+        if (enclosingFunction && functionContainsThrow(enclosingFunction)) {
+          return;
         }
 
         context.report({ node, messageId: "missingErrorHandling" });
@@ -66,4 +75,41 @@ export default {
 
 function isFetchCall(node) {
   return node.callee.type === "Identifier" && node.callee.name === "fetch";
+}
+
+function functionContainsThrow(funcNode) {
+  const body = funcNode.body;
+  if (!body) return false;
+
+  // Walk the function body looking for throw statements
+  // Stop at nested function boundaries (their throws don't count)
+  return containsThrow(body, true);
+}
+
+function containsThrow(node, isRoot) {
+  if (!node || typeof node !== "object") return false;
+
+  if (node.type === "ThrowStatement") return true;
+
+  // Don't descend into nested functions — their throws are their own
+  if (
+    !isRoot &&
+    (node.type === "FunctionDeclaration" ||
+      node.type === "FunctionExpression" ||
+      node.type === "ArrowFunctionExpression")
+  ) {
+    return false;
+  }
+
+  for (const key of Object.keys(node)) {
+    if (key === "parent") continue;
+    const child = node[key];
+    if (Array.isArray(child)) {
+      if (child.some((c) => containsThrow(c, false))) return true;
+    } else if (child && typeof child.type === "string") {
+      if (containsThrow(child, false)) return true;
+    }
+  }
+
+  return false;
 }

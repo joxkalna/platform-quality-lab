@@ -274,3 +274,33 @@ The consumer name isn't being set in the test config. Ensure the `consumer` fiel
 - [Webhooks](https://docs.pact.io/pact_broker/webhooks)
 - [Can-I-Deploy](https://docs.pact.io/pact_broker/can_i_deploy)
 - [Recording Deployments](https://docs.pact.io/pact_broker/recording_deployments_and_releases)
+
+## Broker Options
+
+This project uses PactFlow (SaaS) for persistent contract history. Alternatives:
+
+| Option | Pros | Cons |
+|---|---|---|
+| **PactFlow** (SaaS) | Zero infrastructure, persistent history, `can-i-deploy` works across pipeline runs | 30-day free trial, paid after |
+| **Docker Compose** (self-hosted) | Free, persistent locally via Docker volume | Ephemeral in CI unless you persist the volume |
+| **K8s deployment** | Runs alongside your services | More infrastructure to manage |
+| **Cloud-hosted** (any cloud + Postgres) | Full control, persistent | You manage the infrastructure |
+
+Reference K8s manifests for self-hosted: `k8s/pact-broker.yaml` + `k8s/postgres.yaml`.
+
+PactFlow's free trial is 30 days. After that, switch to any self-hosted option — the scripts and tests are identical, only the Broker URL and auth method change (token → username/password).
+
+## CI vs Local — What Runs Where
+
+**CI pipeline handles:** publish → verify → can-i-deploy → record-deployment. This is the full workflow — pacts are published, verified, and deployments are recorded automatically.
+
+**Never publish pacts or record deployments locally.** The `publish.sh` script blocks outside CI to prevent dirty/untraceable versions from reaching the Broker. Only `initialise-provider.sh` runs locally — it's a one-time setup to give the Broker a baseline. After that, the pipeline owns the full workflow.
+
+| Action | Local | CI |
+|---|---|---|
+| Run consumer tests (`npm run test:pact`) | ✅ | ✅ |
+| Run provider verification (`npm run test:pact:verify`) | ✅ | ✅ |
+| Publish pacts (`publish.sh`) | ❌ Blocked | ✅ |
+| Can-i-deploy (`can-i-deploy.sh`) | ❌ Blocked | ✅ |
+| Record deployment | ❌ Blocked | ✅ |
+| Initialise provider (`initialise-provider.sh`) | ✅ One-time | ❌ Not needed |
