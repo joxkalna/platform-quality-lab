@@ -1,5 +1,13 @@
 # Provider Initialisation
 
+## When You Need This
+
+**Multi-repo (separate pipelines per service):** Always. The provider must be initialised before any consumer publishes a pact. Without it, `can-i-deploy` fails because the Broker has no record of the provider. Run `initialise-provider` once per new provider before the consumer writes its first pact test.
+
+**Monorepo (shared pipeline):** Usually not needed. When the consumer publishes a pact and the provider verifies it in the same pipeline run (same commit), the Broker creates the provider automatically. This is what happened with Service C in this project — `publish.sh` created the pacticipant, provider verification published results, and `can-i-deploy` passed, all in one CI run.
+
+The difference: in multi-repo, the provider's pipeline runs independently and may run *before* any consumer publishes a pact. Without initialisation, `can-i-deploy` has nothing to check against. In a monorepo, everything happens in sequence in one pipeline, so the Broker is populated naturally.
+
 ## Why a Separate Repo?
 
 Provider initialisation is a **one-time setup per provider**, not something that runs on every commit. It makes sense to keep it in its own repo because:

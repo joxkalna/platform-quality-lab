@@ -132,6 +132,9 @@ Services A and B have no instrumentation — we assert on HTTP responses and kub
 
 This is how production observability pipelines are tested — a test harness sends data through real infrastructure and asserts on the telemetry it produces, not just the HTTP response. The HTTP response tells you *what* happened. The telemetry tells you *how* it happened.
 
+**The timeout observability gap:**
+When a service times out or crashes, the OTEL SDK may not get a chance to flush its spans — the process is killed mid-flight and the telemetry for that invocation is lost. Dashboards show nothing, but the failure happened. This is a real production problem: timeouts pile up silently, queues fill, and nobody knows until someone digs through raw logs. Service C should explore this gap — if the LLM call times out, does the trace still get exported? If not, how do you detect it? The answer involves either flush-before-timeout patterns or a fallback telemetry path (e.g. log-based fallback → forwarder → collector).
+
 **Other approaches for testing the processing layer:**
 
 | Approach | What it tests | When to use |
@@ -165,6 +168,40 @@ Branch: `phase6/ai-service`
 - Update deploy-local.sh for Service C
 - Integration tests for Service C
 - Deliberately break a contract to see Pact catch it
+
+## Future Improvements
+Patterns to adopt after all phases are complete, to bring the services closer to production-grade:
+
+### App factory pattern
+Currently, `app.ts` reads env vars at module level. The production pattern is a factory function that receives config as a parameter:
+
+```typescript
+// app.ts — receives config, no env var access
+export const createApp = (config: { serviceBUrl: string; serviceCUrl: string }) => {
+  const app = express()
+  // uses config.serviceBUrl, not process.env
+  return app
+}
+
+// server.ts — validates env vars, creates app
+const config = loadConfig()  // Zod validation
+const app = createApp(config)
+app.listen(config.port)
+
+// test — passes test config directly, no env vars needed
+const app = createApp({ serviceBUrl: mockServer.url, serviceCUrl: mockServer.url })
+```
+
+Benefits:
+- Tests don't need env vars — pass config directly
+- No side effects on import — safe to import from any context
+- Config is explicit — no hidden dependency on `process.env`
+- Same pattern used by NestJS (`NestFactory.create`), Express testing guides, and production Express/Fastify apps
+
+Apply this when refactoring after Phase 7 — it touches every service and every test that imports `app.ts`.
+
+### Zod config for all services
+Service C uses Zod for config validation. Services A and B use bare `process.env`. Align all services to the Zod pattern so misconfiguration crashes at startup with a clear error, not silently at runtime.
 
 ## Coding Style
 - Clean, production-style code — use real tools and patterns as large orgs would
