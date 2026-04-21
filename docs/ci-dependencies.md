@@ -14,6 +14,7 @@ As the project grows through phases, CI dependencies accumulate — images, tool
 | `service-a:latest` | K8s deployment | ~60MB | Built in CI, loaded into Kind |
 | `service-b:latest` | K8s deployment | ~60MB | Built in CI, loaded into Kind |
 | `alexeiled/stress-ng:latest` | resource-pressure.sh (sidecar) | ~15MB | CPU/memory stress injection |
+| `ollama/ollama:latest` | Service C LLM runtime | ~1.2GB | Runs llama3.2:1b model for text classification |
 
 ### Tools (installed in CI runner)
 
