@@ -3,8 +3,8 @@
   "private": true,
   "scripts": {
     "dev": "npx concurrently \"npm run dev:b\" \"npm run dev:a\" \"npm run open\"",
-    "dev:a": "cd services/service-a && npx ts-node src/index.ts",
-    "dev:b": "cd services/service-b && npx ts-node src/index.ts",
+    "dev:a": "cd services/service-a && npx ts-node src/server.ts",
+    "dev:b": "cd services/service-b && npx ts-node src/server.ts",
     "open": "sleep 3 && open http://localhost:3000/data",
     "stop": "lsof -ti:3000,3001 | xargs kill -9 2>/dev/null; echo 'stopped'",
     "k8s:up": "./scripts/deploy-local.sh",

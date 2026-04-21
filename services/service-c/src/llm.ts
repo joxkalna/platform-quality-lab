@@ -1,10 +1,8 @@
 import type { Config } from "./config";
+import type { ClassificationResult } from "./types";
+import { VALID_CATEGORIES } from "./types";
 
-export interface ClassificationResult {
-  category: string;
-  confidence: number;
-  model: string;
-}
+export type { ClassificationResult };
 
 const SYSTEM_PROMPT = `You are a text classifier. Classify the input into exactly one of these categories: critical, warning, info, ok.
 
@@ -46,9 +44,8 @@ const parseResponse = (raw: string): { category: string; confidence: number } =>
 
   const parsed = JSON.parse(jsonMatch[0]);
 
-  const validCategories = ["critical", "warning", "info", "ok"];
-  if (!validCategories.includes(parsed.category)) {
-    throw new Error(`Invalid category "${parsed.category}" — expected one of: ${validCategories.join(", ")}`);
+  if (!VALID_CATEGORIES.includes(parsed.category)) {
+    throw new Error(`Invalid category "${parsed.category}" — expected one of: ${VALID_CATEGORIES.join(", ")}`);
   }
 
   const confidence = Number(parsed.confidence);
