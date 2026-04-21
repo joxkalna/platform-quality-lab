@@ -10,6 +10,7 @@ excludeFiles:
   - "vendor/**"          # Third-party manifests (metrics-server) — not ours to validate
   - "pact-broker.yaml"   # Reference manifest — not deployed, kept for documentation
   - "postgres.yaml"      # Reference manifest — not deployed, kept for documentation
+  - "ollama.yaml"        # Third-party LLM runtime — not ours to validate
 
 # Per-rule skip list
 # Format: rule ID → list of files where the rule is skipped, with reason
