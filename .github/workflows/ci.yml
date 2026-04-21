@@ -215,21 +215,25 @@ jobs:
           kind load docker-image service-c:latest --name platform-lab
           docker pull alexeiled/stress-ng:latest
           docker pull node:24-alpine
-          docker pull ollama/ollama:latest
           kind load docker-image alexeiled/stress-ng:latest --name platform-lab
           kind load docker-image node:24-alpine --name platform-lab
-          kind load docker-image ollama/ollama:latest --name platform-lab
+
+      - name: Start Ollama (host)
+        run: |
+          docker pull ollama/ollama:latest
+          docker run -d --name ollama -p 11434:11434 ollama/ollama:latest
+          sleep 5
+          docker exec ollama ollama pull llama3.2:1b
 
       - name: Deploy to Kind
         run: |
-          kubectl apply -f k8s/ollama.yaml
+          # Ollama runs on the CI host — get the host IP accessible from Kind pods
+          HOST_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' platform-lab-control-plane)
           kubectl apply -f k8s/service-b.yaml
           kubectl apply -f k8s/service-a.yaml
-          kubectl rollout status deployment/ollama --timeout=120s
+          # Patch Service C to point at host Ollama instead of in-cluster
+          sed "s|http://ollama:11434|http://${HOST_IP}:11434|" k8s/service-c.yaml | kubectl apply -f -
           kubectl rollout status deployment/service-b --timeout=60s
-          # Pull model inside the Ollama pod
-          kubectl exec deploy/ollama -- ollama pull llama3.2:1b
-          kubectl apply -f k8s/service-c.yaml
           kubectl rollout status deployment/service-a --timeout=60s
           kubectl rollout status deployment/service-c --timeout=120s
 
@@ -283,4 +287,6 @@ jobs:
 
       - name: Delete Kind cluster
         if: always()
-        run: kind delete cluster --name platform-lab
+        run: |
+          kind delete cluster --name platform-lab
+          docker rm -f ollama 2>/dev/null || true
