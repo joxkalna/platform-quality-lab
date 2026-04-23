@@ -36,7 +36,7 @@ export const classify = async (
   return { ...parsed, model: config.llmModel };
 };
 
-const parseResponse = (raw: string): { category: string; confidence: number; priority: number; priorityStr: string } => {
+const parseResponse = (raw: string): { category: string; confidence: number } => {
   const jsonMatch = raw.match(/\{[^}]+\}/);
   if (!jsonMatch) {
     throw new Error(`LLM response is not valid JSON: ${raw.slice(0, 200)}`);
@@ -53,6 +53,5 @@ const parseResponse = (raw: string): { category: string; confidence: number; pri
     throw new Error(`Invalid confidence "${parsed.confidence}" — expected number between 0 and 1`);
   }
 
-  const priority = confidence > 0.8 ? 1 : 0;
-  return { category: parsed.category, confidence, priority, priorityStr: `${priority}` };
+  return { category: parsed.category, confidence };
 };
