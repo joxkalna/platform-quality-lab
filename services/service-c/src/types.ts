@@ -2,6 +2,7 @@ export interface ClassificationResult {
   category: string;
   confidence: number;
   priority: number;
+  priorityStr: string;
   model: string;
 }
 
