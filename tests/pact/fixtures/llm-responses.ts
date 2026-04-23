@@ -13,14 +13,14 @@ export const classifyCriticalResponse = {
 }
 
 export const classifyWarningResponse = {
-  response: '{"category": "warning", "confidence": 0.82}',
+  response: '{"category": "warning", "confidence": "0.82"}',
   model: 'llama3.2:1b',
   created_at: '2024-01-01T00:00:00Z',
   done: true,
 }
 
 export const classifyInfoResponse = {
-  response: '{"category": "info", "confidence": 0.91}',
+  response: '{"category": "info", "confidence": "0.91"}',
   model: 'llama3.2:1b',
   created_at: '2024-01-01T00:00:00Z',
   done: true,
