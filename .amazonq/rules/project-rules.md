@@ -146,28 +146,48 @@ When a service times out or crashes, the OTEL SDK may not get a chance to flush 
 | Contract tests (Pact) | API shape agreement between services | Always — for every service-to-service boundary |
 
 ## Phase 6 Current Progress
-Branch: `phase6/ai-service`
+Branch: `phase6/ai-service-part2`
 
 **Done:**
 - Service C scaffolded (Express + Zod config + Ollama LLM client)
-  - `services/service-c/` — src/config.ts, src/llm.ts, src/index.ts, Dockerfile, package.json, tsconfig.json
+  - `services/service-c/` — src/app.ts, src/server.ts, src/config.ts, src/llm.ts, src/types.ts, Dockerfile, package.json, tsconfig.json
   - `k8s/service-c.yaml` — 2 replicas, resource limits, separate readiness (checks LLM) / liveness (/health)
   - Endpoints: `POST /classify` (text → category + confidence), `GET /health`, `GET /ready`
   - Zod validates all config at startup (LLM_ENDPOINT, model, temperature, timeout)
   - Exports `app` for Pact provider verification
+- All services refactored to app.ts + server.ts pattern (pure app, no side effects on import)
+- Service A wired to call Service C (`POST /classify` via `SERVICE_C_URL` env var)
+- Pact consumer test for Service A → Service C
+- Pact provider verification for Service C with stubs (StubbedIntegrations pattern)
+  - Fixtures: mock Ollama LLM responses
+  - Stubs: fetch interceptor for Ollama API calls
+  - State handlers: set up stubs before Pact replays requests
+- CI pipeline updated: build, load, deploy Service C with Ollama on host
+- Ollama runs on CI host (not in Kind — avoids disk space issues with kind load)
+- deploy-local.sh updated for Service C + Ollama
+- can-i-deploy.sh updated for 3 services
+- Dependabot config updated for Service C
+- Break-glass procedure documented (docs/pact/break-glass.md)
+- Pact breaking change exercise completed — deliberately broke confidence type, observed Pact catch it
 - Dependencies updated across all services (Express 5, TypeScript 6, @types/node 25)
-- Dependabot added for automated dependency scanning
-- Project rules updated with Phase 6 plans (k6, Pact evolution, pipeline integration tests)
+- Chaos summary renderer rewritten in TypeScript
+- README cleaned up as a landing page
+- ESLint resilience rules improved (understands utility functions that throw)
+- Provider verification docs expanded (stubbing patterns, multi-provider, scaling)
+
+**On learning-break-pact branch (not merged — demonstration only):**
+- Deliberately changed confidence from number to string
+- Observed Pact catch the breaking change (provider verification failed against deployed pact)
+- Tested [skip pact] commit message flag
+- Tested continue-on-error on provider verification
+- Branch exists as proof of the learning exercise
+- **Unresolved:** In a monorepo, a coordinated breaking change (both consumer and provider update in one commit) still fails provider verification because it checks against the *deployed* pact, not the branch pact. `continue-on-error` and `[skip pact]` are workarounds, not solutions. The proper fix for monorepo breaking changes is still an open question — need to investigate whether Pact's `consumerVersionSelectors` can be configured to only verify against the current branch during breaking changes, or whether this is a fundamental limitation of Pact in monorepos.
 
 **Next:**
-- Wire Service A to call Service C (`/classify` endpoint via `SERVICE_C_URL` env var)
-- Add Pact consumer test in Service A for Service C
-- Initialise Service C as provider on PactFlow
-- Add provider verification to Service C
-- Update CI pipeline (build, load, deploy Service C)
-- Update deploy-local.sh for Service C
-- Integration tests for Service C
-- Deliberately break a contract to see Pact catch it
+- Revert breaking change (don't merge the learning branch)
+- Resolve the monorepo breaking change workflow — how to deploy a coordinated API change without [skip pact] or continue-on-error
+- k6 load testing framework
+- Integration tests for Service C (deferred to Phase 7 golden sets — Pact covers API shape)
 
 ## Future Improvements
 Patterns to adopt after all phases are complete, to bring the services closer to production-grade:

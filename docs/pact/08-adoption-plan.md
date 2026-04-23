@@ -465,11 +465,41 @@ Provider goes first:
 
 ### Removing a field or changing a type (breaking change)
 
-Consumer goes first:
-1. Consumer updates its pact test to remove/change the expectation
-2. Consumer publishes updated pact → provider verifies the new contract passes
-3. Provider makes the breaking change
-4. Both merge and deploy
+**Multi-repo (separate pipelines):**
+1. Both teams agree on the change
+2. Consumer updates its pact test first (on a branch — published as a pending pact)
+3. Provider verifies the pending pact — passes
+4. Consumer merges — new pact becomes the deployed version
+5. Provider makes the breaking change and merges
+6. `can-i-deploy` passes because the deployed consumer now expects the new format
+
+**Monorepo (shared pipeline):**
+Both sides change in one commit. The provider verification step will fail against the *deployed* pact (the old format still running in production), but `can-i-deploy` passes because it checks both services at the same commit version.
+
+The pipeline must allow provider verification to fail without blocking:
+```yaml
+- name: Run provider verification
+  continue-on-error: true  # may fail for deployed pacts during breaking changes
+  run: npm run test:pact:verify
+```
+
+The actual gate is `can-i-deploy` (same-commit check), not provider verification.
+
+**Emergency scenario (Friday 4pm, both sides must change now):**
+1. Both sides change in one PR
+2. Provider verification fails against deployed pact — expected
+3. `can-i-deploy` (same-commit) passes — both sides agree at this version
+4. Merge and deploy — once deployed, the deployed version matches
+5. Next pipeline run — provider verification passes because the deployed pact is now the new format
+
+If `can-i-deploy` also fails (e.g. the Broker state is inconsistent), the last resort is to force-record a deployment:
+```bash
+npx pact-broker record-deployment \
+  --pacticipant service-a --version <commit> --environment prod
+npx pact-broker record-deployment \
+  --pacticipant service-c --version <commit> --environment prod
+```
+This tells PactFlow "this version is deployed" before it actually is. Use only in emergencies.
 
 ### Key rule
 
