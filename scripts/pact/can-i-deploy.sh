@@ -68,6 +68,24 @@ echo "✓ Safe to deploy"
 echo ""
 echo "=== Recording Deployments ==="
 
+# Only record deployments on main. Feature branches publish pacts and
+# verify them, but they don't represent a real deployment to any
+# environment. Recording deployments from branches pollutes the Broker
+# — deployedOrReleased selectors would pull branch pacts during
+# provider verification, causing failures when the branch is reverted
+# or merged without those changes.
+#
+# Pattern:
+#   main   → record-deployment (this version is live in $ENV)
+#   branch → skip (pact is published + verified, but not "deployed")
+
+if [[ "$BRANCH" != "main" ]]; then
+  echo "→ Skipping record-deployment (branch: $BRANCH, not main)"
+  echo "  Pacts are published and verified, but not recorded as deployed."
+  echo "  record-deployment only runs after merge to main."
+  exit 0
+fi
+
 for SERVICE in service-a service-b service-c; do
   echo "→ Recording $SERVICE deployment to $ENV..."
   npx pact-broker record-deployment \
