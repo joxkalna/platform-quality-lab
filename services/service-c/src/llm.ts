@@ -9,6 +9,11 @@ const SYSTEM_PROMPT = `You are a text classifier. Classify the input into exactl
 Respond with ONLY a JSON object in this exact format, no other text:
 {"category": "<category>", "confidence": <0.0-1.0>}`;
 
+const categoryToSeverity = (category: string): string => {
+  const map: Record<string, string> = { critical: 'SEV1', warning: 'SEV2', info: 'SEV3', ok: 'SEV4' };
+  return map[category] ?? 'SEV4';
+};
+
 export const classify = async (
   text: string,
   config: Config
@@ -36,7 +41,7 @@ export const classify = async (
   return { ...parsed, model: config.llmModel };
 };
 
-const parseResponse = (raw: string): { category: string; confidence: number } => {
+const parseResponse = (raw: string): { category: string; confidence: number; severity: string } => {
   const jsonMatch = raw.match(/\{[^}]+\}/);
   if (!jsonMatch) {
     throw new Error(`LLM response is not valid JSON: ${raw.slice(0, 200)}`);
@@ -53,5 +58,5 @@ const parseResponse = (raw: string): { category: string; confidence: number } =>
     throw new Error(`Invalid confidence "${parsed.confidence}" — expected number between 0 and 1`);
   }
 
-  return { category: parsed.category, confidence };
+  return { category: parsed.category, confidence, severity: categoryToSeverity(parsed.category) };
 };

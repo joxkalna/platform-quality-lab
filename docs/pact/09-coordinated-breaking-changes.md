@@ -406,6 +406,46 @@ If the original type was a genuine mistake (not a design decision that evolved),
 
 This should be rare. In a mature org, it happens maybe once or twice a year. If it's happening monthly, the problem isn't Pact — it's the API design process.
 
+## Proof — The 4-MR Exercise (`phase6/pact3`)
+
+After the `learning-break-pact` incident, we exercised the Expand and Contract pattern using a `priority` field on Service C.
+
+| MR | Step | What happened | Pipeline result |
+|---|---|---|---|
+| 1 | Expand | Provider added `priority` to `/classify` response. Consumer pact unchanged. Also: re-enabled pact job, registered `qa` environment, rewrote `can-i-deploy.sh` for 3-environment flow | ✅ Provider returns extra field, consumer ignores it |
+| 2 | Migrate | Consumer pact added `priority: MatchersV3.string(...)` assertion. Provider already returns it | ✅ Both sides agree on `priority` |
+| 3 | Contract | Consumer pact removed `priority` assertion. Provider still returns it | ✅ Consumer no longer depends on `priority` |
+| 4 | Cleanup | Provider removed `priority` from response. `can-i-deploy` confirmed no consumer depends on it | ✅ Code back to starting state, Broker clean |
+
+### What this proved
+
+The exercise proved Expand and Contract works as a **prevention** pattern — if you follow it from the start, you never need break-glass. Four MRs, four green pipelines, zero `[skip pact]`, zero `continue-on-error`, zero Broker cleanup.
+
+### What this didn't prove
+
+It didn't simulate the **recovery** path after a break-glass hotfix. The real Friday-to-Monday scenario would be:
+
+1. `priority` exists in production (MR 2 state — both sides depend on it)
+2. Friday hotfix removes `priority` from provider, `[skip pact]` to deploy
+3. Monday: Broker still thinks consumer depends on `priority`, but production provider no longer returns it
+4. Recovery: MR 3 (consumer drops assertion) → MR 4 (provider removal already done, or re-done cleanly)
+
+We never had the "skip pact hotfix" step between MR 2 and MR 3. Our MRs ran sequentially with green pipelines throughout — the happy path, not the recovery path.
+
+### The two patterns side by side
+
+| | Prevention (what we exercised) | Recovery (what Friday-to-Monday looks like) |
+|---|---|---|
+| Starting state | Both sides depend on field | Both sides depend on field |
+| Trigger | Planned removal | Emergency — field is the problem |
+| Step 1 | Consumer drops assertion (MR 3) | Hotfix removes from provider + `[skip pact]` |
+| Step 2 | Provider removes field (MR 4) | Monday: consumer drops assertion, re-enable pact |
+| Step 3 | — | Provider removal already deployed (or re-done cleanly) |
+| Broker state | Clean throughout | Polluted after hotfix, cleaned up after Monday MRs |
+| Break-glass needed | No | Yes (Friday only) |
+
+The mechanics are the same — consumer goes first, `can-i-deploy` gates provider removal. The difference is whether you do it proactively (prevention) or reactively (recovery after break-glass).
+
 ## Related Docs
 
 - [break-glass.md](break-glass.md) — emergency deployment procedure
