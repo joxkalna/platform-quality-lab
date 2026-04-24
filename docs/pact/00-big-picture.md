@@ -96,8 +96,19 @@ It answers this by checking whether all contracts involving that service version
 4. Provider CI fetches pacts for its consumers from the Broker
 5. Provider verifies each interaction against its real API
 6. Verification results are published back to the Broker
-7. Before deploying either service, `can-i-deploy` checks compatibility
-8. If all contracts are green, deploy proceeds
+7. Before deploying to each environment, `can-i-deploy` checks compatibility (embedded inside the deploy stage)
+8. If compatible, deploy proceeds
+9. After successful deploy, `record-deployment` tells the Broker what's now running (embedded inside the deploy stage, main branch only)
+
+### The deploy stage principle
+
+`can-i-deploy` and `record-deployment` are not standalone jobs — they are embedded inside each deploy stage. Each environment (qa, prod) gets its own gate and its own deployment record:
+
+```
+can-i-deploy(qa) → deploy(qa) → record-deployment(qa) → can-i-deploy(prod) → deploy(prod) → record-deployment(prod)
+```
+
+Feature branches run steps 1-6 only. They publish pacts and verify them, but they never run `can-i-deploy` or `record-deployment`. A feature branch pact is a proposal, not a deployment. Recording deployments from feature branches pollutes the Broker and breaks `can-i-deploy` for every team. See [05-ci-cd-patterns.md](./05-ci-cd-patterns.md#branch-vs-main--what-runs-where) for the full explanation.
 
 ## Rollout Order
 

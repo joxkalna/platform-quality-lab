@@ -164,10 +164,12 @@ Do not start consumer work until the provider is merged, deployed, and recorded 
 
 3. **Add provider verification to the provider's CI pipeline:**
    ```
-   build and test          pre-deploy         deploy          post-deploy
-   ──────────────          ──────────         ──────          ───────────
-   pact:verify        →    can-i-deploy  →    deploy     →    record-deployment
+   build and test          deploy:qa                              deploy:prod
+   ──────────────          ─────────                              ───────────
+   pact:verify        →    can-i-deploy(qa) → deploy → record    can-i-deploy(prod) → deploy → record
    ```
+
+   `can-i-deploy` and `record-deployment` are embedded inside each deploy stage — not standalone jobs. Each environment gets its own gate and its own deployment record. See [05-ci-cd-patterns.md](./05-ci-cd-patterns.md#the-deploy-stage-pattern) for why this matters.
 
    The verification step fetches pacts from the Broker and verifies them against the running provider. At this point there are no pacts yet, so it will pass with "no pacts found" — that's expected.
 
@@ -206,30 +208,44 @@ Do not start consumer work until the provider is merged, deployed, and recorded 
    - `enablePending: true` — new pacts don't break the provider pipeline until verified
    - `publishVerificationResult` only in CI — don't pollute the Broker with local results
 
-5. **Add `can-i-deploy` and `record-deployment` to the provider's deploy pipeline:**
+5. **Embed `can-i-deploy` and `record-deployment` inside each deploy stage:**
+
+   Each deploy stage (qa, prod) follows the same sequence:
+
    ```bash
-   # Before deploying to each environment
+   # Inside deploy:qa stage
    pact-broker can-i-deploy \
      --pacticipant "my-provider-service" \
      --version "$GIT_SHORT_SHA" \
-     --to-environment "$ENV" \
-     --broker-base-url "$PACT_BROKER_URL" ...
+     --to-environment qa \
+     --broker-base-url "$PACT_BROKER_URL" \
+     --retry-while-unknown 10 \
+     --retry-interval 20 ...
 
-   # After successful deploy
+   deploy  # actual deployment
+
    pact-broker record-deployment \
      --pacticipant "my-provider-service" \
      --version "$GIT_SHORT_SHA" \
-     --environment "$ENV" \
+     --environment qa \
      --broker-base-url "$PACT_BROKER_URL" ...
    ```
 
-   Only `record-deployment` on the protected main branch, not feature branches.
+   Guards on `record-deployment` (all must be true):
+   - Protected main branch (not a feature branch)
+   - `PACT_TESTING` enabled
+   - `PACTICIPANTS` defined
+   - `ENVIRONMENT` defined
+
+   Feature branches run `pact_test`, `pact_publish`, and `pact_verify` only — they never run `can-i-deploy` or `record-deployment`. A feature branch pact is a proposal, not a deployment.
 
 ### Done when
 
 - [ ] Provider registered on the Broker with a version
 - [ ] Deployments recorded for all environments
-- [ ] Provider pipeline has: verify → can-i-deploy → deploy → record-deployment
+- [ ] Provider pipeline has: verify in build stage, then per-environment: can-i-deploy → deploy → record-deployment
+- [ ] `record-deployment` only runs on protected main branch (guarded)
+- [ ] Feature branches run verify only — no can-i-deploy, no record-deployment
 - [ ] Pipeline is green on main (no pacts to verify yet — that's the expected state)
 - [ ] Provider is merged and deployed before moving to Phase 3
 
@@ -297,11 +313,12 @@ The consumer starts on a feature branch. When CI runs on the branch, it publishe
 
 3. **Add pact steps to the consumer's CI pipeline:**
    ```
-   build and test                    pre-deploy         deploy          post-deploy
-   ──────────────                    ──────────         ──────          ───────────
-   pact:test → pact:publish    →    can-i-deploy  →    deploy     →    record-deployment
+   build and test                    deploy:qa                              deploy:prod
+   ──────────────                    ─────────                              ───────────
+   pact:test → pact:publish    →    can-i-deploy(qa) → deploy → record    can-i-deploy(prod) → deploy → record
    ```
 
+   Build stage (runs on all branches):
    ```bash
    # Publish the pact to the Broker
    pact-broker publish ./pacts \
@@ -310,19 +327,25 @@ The consumer starts on a feature branch. When CI runs on the branch, it publishe
      --broker-password "$PACT_BROKER_PASSWORD" \
      --consumer-app-version "$GIT_SHORT_SHA" \
      --branch "$GIT_BRANCH"
+   ```
 
-   # Before deploying to each environment
+   Deploy stage (runs on main only, embedded per environment):
+   ```bash
+   # Inside deploy:qa
    pact-broker can-i-deploy \
      --pacticipant "my-consumer-service" \
      --version "$GIT_SHORT_SHA" \
-     --to-environment "$ENV" \
-     --broker-base-url "$PACT_BROKER_URL" ...
+     --to-environment qa \
+     --broker-base-url "$PACT_BROKER_URL" \
+     --retry-while-unknown 10 \
+     --retry-interval 20 ...
 
-   # After successful deploy
+   deploy  # actual deployment
+
    pact-broker record-deployment \
      --pacticipant "my-consumer-service" \
      --version "$GIT_SHORT_SHA" \
-     --environment "$ENV" \
+     --environment qa \
      --broker-base-url "$PACT_BROKER_URL" ...
    ```
 
@@ -339,8 +362,9 @@ The consumer starts on a feature branch. When CI runs on the branch, it publishe
 - [ ] Consumer pact test passes locally
 - [ ] Pact published to Broker
 - [ ] Provider verifies the pact successfully
-- [ ] Both pipelines gate on `can-i-deploy` before each environment
-- [ ] Both pipelines run `record-deployment` after each deploy
+- [ ] Both pipelines gate on `can-i-deploy` before each environment (embedded in deploy stage)
+- [ ] Both pipelines run `record-deployment` after each deploy (main branch only, embedded in deploy stage)
+- [ ] Feature branches: test + publish + verify only — no can-i-deploy, no record-deployment
 - [ ] Broker UI shows green verification status
 
 ### References
@@ -512,13 +536,15 @@ If a change breaks an existing contract, discuss it as a team first. Consider wh
 ### Consumer pipeline
 
 ```
-test → pact:test → pact:publish → can-i-deploy → deploy → record-deployment
+branch:  test → pact:test → pact:publish                              (no deploy, no record)
+main:    test → pact:test → pact:publish → [can-i-deploy(qa) → deploy:qa → record(qa)] → [can-i-deploy(prod) → deploy:prod → record(prod)]
 ```
 
 ### Provider pipeline
 
 ```
-test → pact:verify → can-i-deploy → deploy → record-deployment
+branch:  test → pact:verify                                           (no deploy, no record)
+main:    test → pact:verify → [can-i-deploy(qa) → deploy:qa → record(qa)] → [can-i-deploy(prod) → deploy:prod → record(prod)]
 ```
 
 ### One-time per provider
@@ -542,7 +568,8 @@ deploy broker → register environments (dev, qa, prod)
 - [ ] **First provider** initialised with green baseline in all environments
 - [ ] **First consumer** publishing pacts and gating on `can-i-deploy`
 - [ ] **Provider verification** passing and publishing results
-- [ ] **Both pipelines** running `record-deployment` after each deploy (main branch only)
+- [ ] **Both pipelines** running `record-deployment` after each deploy (main branch only, embedded inside each deploy stage)
+- [ ] **Feature branches** run test + publish + verify only — never can-i-deploy or record-deployment
 - [ ] **Webhook** auto-triggering provider verification on new pacts
 - [ ] **Second pair** onboarded without platform team hand-holding
 - [ ] **Knowledge spreading** — teams can troubleshoot their own failures
