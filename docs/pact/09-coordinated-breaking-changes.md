@@ -4,7 +4,7 @@
 
 Friday 4pm. Major incident. A field that was always meant to be a `string` has been a `number` since day one. Both consumer and provider teams agree it needs to change. No backwards compatibility — this isn't a v2, it was a mistake.
 
-The fix ships Friday using break-glass (`[skip pact]`). Pact is disabled. Both services deploy with the corrected type.
+The fix ships Friday using break-glass (`PACT_ENABLED=false`). Pact is disabled. Both services deploy with the corrected type.
 
 Monday morning: Pact is still disabled. The Broker thinks `confidence` is a `number`. Reality says `string`. The contract needs to catch up with the code.
 
@@ -103,13 +103,13 @@ This mimics the multi-repo flow within a single branch. The first commit is the 
 
 **Downside:** Requires two pipeline runs. The first run has a weakened gate.
 
-#### Option 2: Skip Pact for one commit, fix on the next
+#### Option 2: Disable Pact via repository variable
 
-This is what we did Friday:
+Set `PACT_ENABLED` to `false` in GitHub Actions repository variables. The pact job is skipped entirely. Push the fix — lint, typecheck, K8s validation, and deploy still run.
 
 ```
-Commit 1: [skip pact] — both sides change, Pact skipped entirely
-Commit 2: Remove [skip pact] — full pipeline, Pact re-enabled
+Commit 1: PACT_ENABLED=false — both sides change, Pact skipped entirely
+Commit 2: PACT_ENABLED=true — full pipeline, Pact re-enabled
           New pact published, provider verifies, can-i-deploy passes
 ```
 
@@ -142,7 +142,7 @@ consumerVersionSelectors: [
 
 ### Recommended monorepo approach
 
-**Option 2** (`[skip pact]` → re-enable) is the safest for a genuine emergency. It's explicit, auditable, and the break-glass procedure is already documented.
+**Option 2** (`PACT_ENABLED=false` → re-enable) is the safest for a genuine emergency. It's explicit, auditable, and the break-glass procedure is already documented.
 
 For a planned breaking change (not an emergency), **Option 1** (two commits) is cleaner — it keeps Pact running throughout and mimics the natural multi-repo flow.
 
@@ -151,7 +151,7 @@ For a planned breaking change (not an emergency), **Option 1** (two commits) is 
 Regardless of repo structure, after the emergency:
 
 - [ ] All code changes are deployed (consumer and provider return/expect the new type)
-- [ ] Break-glass workarounds are removed (`[skip pact]`, `continue-on-error`, `if: always()`)
+- [ ] Break-glass workarounds are removed (`PACT_ENABLED` set back to `true`, `continue-on-error`, `if: always()`)
 - [ ] Consumer pact test updated to expect the new type
 - [ ] Provider verification passes against the new pact
 - [ ] `can-i-deploy` passes for all services
@@ -167,10 +167,12 @@ We deliberately broke `confidence` from `number` to `string` to exercise this ex
 **Timeline:**
 1. Changed `confidence` type in Service C (provider) and consumer pact test
 2. Provider verification failed — old deployed pact expected `number`, provider now returns `string`
-3. Used `[skip pact]` to deploy the fix
+3. Used `[skip pact]` to deploy the fix (later replaced with `PACT_ENABLED` variable — see below)
 4. Added `if: always()` on `deploy-and-test` so it runs when pact is skipped
 5. Monday: updated all fixtures, fixed `parseResponse` return type, removed break-glass workarounds
 6. Pushed with Pact re-enabled — new pact published, provider verified, `can-i-deploy` passed
+
+**CI improvement discovered:** The original `[skip pact]` approach used `github.event.head_commit.message` which only sees the merge commit message on PR merges — not the original commit. Replaced with a `PACT_ENABLED` repository variable (`vars.PACT_ENABLED != 'false'`) which is reliable regardless of how the commit lands on the branch.
 
 **The gap we found:** In a monorepo, there is no clean way to deploy a coordinated breaking change through Pact without at least one commit that weakens the gate. Multi-repo handles this naturally through `enablePending` and deployment ordering. Monorepo doesn't have that luxury because there's no "deploy consumer first, then provider" — it's one atomic commit.
 
@@ -432,6 +434,8 @@ It didn't simulate the **recovery** path after a break-glass hotfix. The real Fr
 
 We never had the "skip pact hotfix" step between MR 2 and MR 3. Our MRs ran sequentially with green pipelines throughout — the happy path, not the recovery path.
 
+See the `severity` exercise below for the recovery proof.
+
 ### The two patterns side by side
 
 | | Prevention (what we exercised) | Recovery (what Friday-to-Monday looks like) |
@@ -445,6 +449,40 @@ We never had the "skip pact hotfix" step between MR 2 and MR 3. Our MRs ran sequ
 | Break-glass needed | No | Yes (Friday only) |
 
 The mechanics are the same — consumer goes first, `can-i-deploy` gates provider removal. The difference is whether you do it proactively (prevention) or reactively (recovery after break-glass).
+
+## Proof — The Friday-to-Monday Recovery (`severity` exercise)
+
+The `priority` exercise proved prevention. This exercise proved **recovery** — what happens when you skip pact on Friday and need to clean up on Monday.
+
+### Setup
+
+Provider added `severity` field (SEV1–SEV4 mapped from category) to `/classify` response. Consumer added `severity` assertion to pact test. Both merged to main — Broker shows both sides depend on `severity`.
+
+### Friday 5pm — hotfix
+
+`severity` is breaking production. Provider removes `severity` from the response. `PACT_ENABLED` set to `false` in GitHub repo variables. Hotfix pushed and deployed — pact job skipped entirely.
+
+Broker state after Friday: consumer's deployed pact still expects `severity`, but the provider no longer returns it. Pact is disabled.
+
+**CI discovery:** The original `[skip pact]` commit message approach didn't work — `github.event.head_commit.message` only sees the merge commit on PR merges, not the original commit. Replaced with `PACT_ENABLED` repository variable which works reliably.
+
+### Monday — recovery
+
+1. Set `PACT_ENABLED` back to `true` in GitHub repo variables
+2. Consumer removes `severity` assertion from pact test
+3. Push — pipeline runs with pact re-enabled:
+   - Consumer pact generated without `severity`
+   - Published to Broker — replaces the old pact that expected `severity`
+   - Provider verification passes — provider doesn't return `severity`, pact doesn't expect it
+   - `can-i-deploy` green — both sides agree
+
+### What this proved
+
+- The `PACT_ENABLED` variable reliably skips pact in an emergency
+- Recovery is a single MR: consumer drops the assertion, re-enable pact, push
+- The provider hotfix (already deployed Friday) doesn't need a separate MR — it's already in production
+- Broker state self-heals when the new consumer pact is published — no manual Broker cleanup needed
+- The whole recovery is one pipeline run, not multiple
 
 ## Related Docs
 
