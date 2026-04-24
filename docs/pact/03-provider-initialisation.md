@@ -164,18 +164,20 @@ You could also combine them into a single script or a Makefile — whatever fits
 Initialisation is a one-off. But your provider's own CI/CD pipeline needs ongoing pact steps baked into its deploy stages. Here's where they go:
 
 ```
-build and test          pre-deploy              deploy              post-deploy
-──────────────          ──────────              ──────              ───────────
-pact_verify        →    can-i-deploy (env)  →   deploy to env  →   record-deployment (env)
+build and test          deploy:qa                                    deploy:prod
+──────────────          ─────────                                    ───────────
+pact_verify        →    can-i-deploy(qa) → deploy → record(qa)      can-i-deploy(prod) → deploy → record(prod)
 ```
+
+`can-i-deploy` and `record-deployment` are embedded inside each deploy stage — not standalone jobs at the end. Each environment gets its own gate and its own deployment record. See [05-ci-cd-patterns.md](./05-ci-cd-patterns.md#the-deploy-stage-pattern) for the full pattern.
 
 ### 1. Verify pacts (build and test stage)
 
-Run provider verification tests before anything deploys. See [02-provider-verification.md](./02-provider-verification.md).
+Run provider verification tests before anything deploys. This runs on all branches (feature and main). See [02-provider-verification.md](./02-provider-verification.md).
 
-### 2. Can-i-deploy gate (pre-deploy stage)
+### 2. Can-i-deploy gate (inside each deploy stage)
 
-Before each environment deploy, check the Broker:
+Embedded inside each deploy stage, before the actual deployment:
 
 ```bash
 pact-broker can-i-deploy \
@@ -184,18 +186,20 @@ pact-broker can-i-deploy \
   --to-environment "$ENV" \
   --broker-base-url "$PACT_BROKER_URL" \
   --broker-username "$PACT_BROKER_USERNAME" \
-  --broker-password "$PACT_BROKER_PASSWORD"
+  --broker-password "$PACT_BROKER_PASSWORD" \
+  --retry-while-unknown 10 \
+  --retry-interval 20
 ```
 
-This blocks the deploy if contracts aren't compatible. Run it before every environment (qa, staging, prod).
+This blocks the deploy if contracts aren't compatible. Runs before every environment (qa, prod). Only runs on the protected main branch — feature branches skip this entirely.
 
-### 3. Deploy (deploy stage)
+### 3. Deploy (inside each deploy stage)
 
 Your normal deployment step — no pact changes here.
 
-### 4. Record deployment (post-deploy stage)
+### 4. Record deployment (inside each deploy stage)
 
-After a successful deploy, tell the Broker what's now running:
+Embedded inside each deploy stage, after a successful deployment:
 
 ```bash
 pact-broker record-deployment \
@@ -209,7 +213,13 @@ pact-broker record-deployment \
 
 This is critical — without it, `can-i-deploy` uses stale data and future deployments (yours and your consumers') may be blocked.
 
-Only record deployments from the protected main branch, not feature branches.
+Guards (all must be true):
+- Protected main branch (not a feature branch)
+- `PACT_TESTING` enabled
+- `PACTICIPANTS` defined
+- `ENVIRONMENT` defined
+
+**Never record deployments from feature branches.** A feature branch pact is a proposal, not a deployment. Recording it as deployed pollutes the Broker and breaks `can-i-deploy` for every team that depends on the affected services. See [05-ci-cd-patterns.md](./05-ci-cd-patterns.md#what-happens-if-you-record-deployments-from-a-feature-branch) for what happens when this goes wrong.
 
 ### 5. Consumers can now publish pacts
 

@@ -1,11 +1,8 @@
 name: CI
 
-# TEMPORARY: main excluded from push triggers while pact broker state is being fixed.
-# Merges to main were failing because consumer pact test is broken + broker state is stale.
-# Re-add main to push branches after: consumer test fixed, broker cleaned, pact job re-enabled.
 on:
   push:
-    branches-ignore: [main]
+    branches: [main, 'phase*/**']
   pull_request:
     branches: [main]
 
@@ -127,13 +124,11 @@ jobs:
       - name: Validate K8s manifests (policy)
         run: npm run validate:manifests
 
-  # Pact contract tests — runs against persistent PactFlow Broker
-  # DISABLED: Broker state is out of sync after [skip pact] merge to main.
-  # Fix broker state (clean up versions, re-verify, record-deployment) before re-enabling.
-  # See docs/pact/break-glass.md for skip patterns.
+  # Pact contract tests — runs against persistent PactFlow Broker.
+  # [skip pact] in commit message skips this job (break-glass — see docs/pact/break-glass.md).
   pact:
     needs: install
-    if: false
+    if: "!contains(github.event.head_commit.message, '[skip pact]')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
