@@ -439,12 +439,28 @@ Moving `record-deployment` before provider verification would fix the recovery c
 
 The pipeline order exists for a reason: verify first, record after.
 
-### The fix: two-commit recovery
+### The real fix: separate stages
+
+A production pipeline separates verification from deployment recording into different stages:
+
+```
+build and test stage              deploy stage
+──────────────────                ────────────
+consumer test → publish → verify  can-i-deploy → deploy → record-deployment
+```
+
+Verification is in the build/test stage. `can-i-deploy` and `record-deployment` are in the deploy stage, after the actual deploy. Even if verification fails, the deploy still happens (if `can-i-deploy` passes), and `record-deployment` updates the Broker.
+
+In that structure, recovery after a break-glass hotfix is a single commit — no `continue-on-error`, no second cleanup commit. Verification fails against the old deployed pact (expected), but it doesn't block the deploy stage. `record-deployment` updates the Broker, and the next pipeline run verifies cleanly.
+
+Our monorepo pipeline has everything in one job, so verification failing blocks `record-deployment`. The two-commit recovery with `continue-on-error` is a workaround for this structural limitation.
+
+> **TODO:** Restructure the CI pipeline to match the production pattern — move `can-i-deploy` and `record-deployment` into the deploy stage, separate from verification. See [05-ci-cd-patterns.md](05-ci-cd-patterns.md) for the target structure.
+
+### The current workaround: two-commit recovery
 
 1. **Commit 1:** Consumer removes the assertion + `continue-on-error` on provider verification. Verification fails (expected), but `record-deployment` runs and updates the Broker.
 2. **Commit 2:** Remove `continue-on-error`. Verification passes because the Broker now has the new pact as deployed.
-
-This is the unavoidable cost of skipping pact in a monorepo. Multi-repo doesn't have this problem because each service records its own deployment independently.
 
 See `09-coordinated-breaking-changes.md` → "Proof — The Friday-to-Monday Recovery" for the full exercise.
 
