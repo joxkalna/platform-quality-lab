@@ -212,7 +212,8 @@ Exercising the production Expand and Contract pattern from `09-coordinated-break
 |---|---|---|
 | Setup | Provider added `severity` (SEV1–SEV4) + consumer added assertion — both merged to main | ✅ Both sides depend on `severity` |
 | Friday hotfix | Provider removed `severity`, `PACT_ENABLED=false` in repo variables | ✅ Pact skipped, hotfix deployed |
-| Monday recovery | Consumer removed `severity` assertion, `PACT_ENABLED=true` | ✅ New pact published, provider verification passes, Broker clean |
+| Monday recovery (commit 1) | Consumer removed `severity` assertion, `PACT_ENABLED=true`, `continue-on-error` on provider verification | ✅ Provider verification fails against old deployed pact (expected), `record-deployment` updates Broker |
+| Monday recovery (commit 2) | Removed `continue-on-error` | ✅ Provider verification passes, pipeline fully clean |
 
 **CI improvement discovered:** `[skip pact]` in commit messages doesn't work on PR merges — `github.event.head_commit.message` only sees the merge commit. Replaced with `PACT_ENABLED` repository variable (`vars.PACT_ENABLED != 'false'`).
 
