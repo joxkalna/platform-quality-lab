@@ -41,7 +41,7 @@ npx pact-broker create-version-tag \
 echo "✓ Provider '$PROVIDER' registered (version: $COMMIT, branch: $BRANCH)"
 
 # 2. Record deployment to all environments (green baseline)
-for ENV_NAME in dev prod; do
+for ENV_NAME in dev qa prod; do
   echo "→ Recording deployment to '$ENV_NAME'..."
   npx pact-broker record-deployment \
     --pacticipant "$PROVIDER" \
