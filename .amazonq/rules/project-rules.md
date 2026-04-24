@@ -215,7 +215,7 @@ Exercising the production Expand and Contract pattern from `09-coordinated-break
 | Monday recovery (commit 1) | Consumer removed `severity` assertion, `PACT_ENABLED=true`, `continue-on-error` on provider verification | ✅ Provider verification fails against old deployed pact (expected), `record-deployment` updates Broker |
 | Monday recovery (commit 2) | Removed `continue-on-error` | ✅ Provider verification passes, pipeline fully clean |
 
-**Pipeline structure insight:** The need for `continue-on-error` + two commits is because our pipeline runs verification and `record-deployment` in the same job. In a production pipeline where verification is in the build/test stage and `record-deployment` is in the deploy stage, recovery would be a single commit — verification failure wouldn't block deployment recording. TODO: restructure CI pipeline to match this pattern.
+**Pipeline structure:** The pipeline was restructured so verification (pact job) and deployment recording (deploy-and-test job) are in separate stages. Verification failure no longer blocks `record-deployment`. Recovery after break-glass is now a single commit — no `continue-on-error` needed. The `continue-on-error` two-commit approach remains documented as a valid alternative for pipelines that can't separate stages.
 
 **CI improvement discovered:** `[skip pact]` in commit messages doesn't work on PR merges — `github.event.head_commit.message` only sees the merge commit. Replaced with `PACT_ENABLED` repository variable (`vars.PACT_ENABLED != 'false'`).
 

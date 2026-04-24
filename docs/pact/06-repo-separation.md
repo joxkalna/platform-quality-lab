@@ -453,16 +453,36 @@ Verification is in the build/test stage. `can-i-deploy` and `record-deployment` 
 
 In that structure, recovery after a break-glass hotfix is a single commit — no `continue-on-error`, no second cleanup commit. Verification fails against the old deployed pact (expected), but it doesn't block the deploy stage. `record-deployment` updates the Broker, and the next pipeline run verifies cleanly.
 
-Our monorepo pipeline has everything in one job, so verification failing blocks `record-deployment`. The two-commit recovery with `continue-on-error` is a workaround for this structural limitation.
+Our monorepo pipeline now follows this pattern:
 
-> **TODO:** Restructure the CI pipeline to match the production pattern — move `can-i-deploy` and `record-deployment` into the deploy stage, separate from verification. See [05-ci-cd-patterns.md](05-ci-cd-patterns.md) for the target structure.
+```
+pact job (build & test):    consumer test → publish → verify
+deploy-and-test job:        build → deploy → can-i-deploy → record-deployment → tests → chaos
+```
 
-### The current workaround: two-commit recovery
+Verification failure in the pact job doesn't block `can-i-deploy` or `record-deployment` in the deploy job. Recovery after a break-glass hotfix is a single commit — no `continue-on-error` needed.
 
-1. **Commit 1:** Consumer removes the assertion + `continue-on-error` on provider verification. Verification fails (expected), but `record-deployment` runs and updates the Broker.
+### How recovery works now
+
+After a break-glass hotfix (pact disabled on Friday, provider removed a field):
+
+1. Consumer removes the pact assertion, re-enables pact
+2. Pact job: verification fails against old deployed pact (expected) — pact job fails
+3. Deploy job: runs independently — `can-i-deploy` passes, deploy succeeds, `record-deployment` updates the Broker
+4. Next pipeline run: verification passes because the Broker now has the new pact as deployed
+
+Single commit. No `continue-on-error`. No cleanup commit.
+
+### Previous approach: two-commit recovery with continue-on-error
+
+Before the pipeline restructuring, verification and `record-deployment` ran in the same job. Verification failing blocked `record-deployment`, so recovery required two commits:
+
+1. **Commit 1:** Consumer removes the assertion + `continue-on-error: true` on provider verification. Verification fails (expected), but `record-deployment` runs and updates the Broker.
 2. **Commit 2:** Remove `continue-on-error`. Verification passes because the Broker now has the new pact as deployed.
 
-See `09-coordinated-breaking-changes.md` → "Proof — The Friday-to-Monday Recovery" for the full exercise.
+This is a valid pattern if your pipeline doesn't separate verification from deployment recording. `continue-on-error` absorbs the known one-time gap — the downside is it masks real failures for one pipeline run.
+
+See `09-coordinated-breaking-changes.md` → "The Friday-to-Monday Recovery" for the full exercise.
 
 ## Monorepo Simplifications
 

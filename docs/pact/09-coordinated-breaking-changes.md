@@ -493,17 +493,17 @@ The new consumer pact (without `severity`) is published in the first Monday comm
 
 ### The real problem: pipeline structure
 
-The need for `continue-on-error` is a symptom of our pipeline structure, not a fundamental Pact limitation.
+The need for `continue-on-error` was a symptom of our pipeline structure, not a fundamental Pact limitation.
 
-Our monorepo pipeline runs everything in one job:
+Our monorepo pipeline originally ran everything in one job:
 
 ```
 consumer test → publish → verify → can-i-deploy → record-deployment
 ```
 
-Verification failing blocks everything after it — including `record-deployment`, which is the thing that would fix the Broker state.
+Verification failing blocked everything after it — including `record-deployment`, which is the thing that would fix the Broker state.
 
-A production pipeline separates these into different stages:
+The production pattern separates these into different stages:
 
 ```
 build and test stage              deploy stage
@@ -513,22 +513,21 @@ consumer test → publish → verify  can-i-deploy → deploy → record-deploym
 
 Verification is in the build/test stage. `record-deployment` is in the deploy stage, after the actual deploy. Even if verification fails, the deploy still happens (if `can-i-deploy` passes), and `record-deployment` updates the Broker.
 
-In that structure, the Monday recovery is a single commit:
+We restructured the pipeline to match this pattern. The Monday recovery is now a single commit:
 1. Consumer removes `severity` assertion
-2. Verification fails against old deployed pact (expected) — but it's in the build stage, not blocking deploy
-3. `can-i-deploy` passes (the new pact is compatible with the deployed provider)
-4. Deploy runs, `record-deployment` updates the Broker
-5. Next pipeline run: verification passes because the Broker now has the new pact as deployed
+2. Pact job: verification fails against old deployed pact (expected) — pact job fails
+3. Deploy job: `can-i-deploy` passes, deploy runs, `record-deployment` updates the Broker
+4. Next pipeline run: verification passes because the Broker now has the new pact as deployed
 
 No `continue-on-error`. No second cleanup commit. The pipeline structure handles it.
 
-> **TODO:** Restructure the CI pipeline to separate verification from deployment recording — move `can-i-deploy` and `record-deployment` into the deploy stage (`deploy-and-test` job), separate from the pact job which handles test/publish/verify. This matches the production pattern described in [05-ci-cd-patterns.md](05-ci-cd-patterns.md) and eliminates the need for `continue-on-error` during recovery.
+If your pipeline can't separate stages, the `continue-on-error` two-commit approach (described in the Monday recovery above) remains a valid alternative.
 
 ### What this proved
 
 - The `PACT_ENABLED` variable reliably skips pact in an emergency
-- Recovery requires two commits in our current pipeline — the first absorbs the gap with `continue-on-error`, the second removes the workaround
-- In a production pipeline (verification and deployment in separate stages), recovery would be a single commit — no `continue-on-error` needed
+- With the old pipeline (verification and record-deployment in one job), recovery required two commits — the first absorbed the gap with `continue-on-error`, the second removed the workaround
+- After restructuring (verification and record-deployment in separate stages), recovery is a single commit — no `continue-on-error` needed
 - The old deployed pact persists on the Broker until `record-deployment` runs with the new version
 - Provider verification checks `{ deployedOrReleased: true }` which pulls the old pact — this is by design (safety net)
 - Broker state self-heals once `record-deployment` records the new consumer version
