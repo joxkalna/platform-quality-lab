@@ -48,29 +48,25 @@ Now push the fix. Provider verification may still fail against the old deployed 
 
 ### Recovery (re-enabling Pact)
 
-After the hotfix is deployed with pact disabled, the Broker is stale — it still has the old consumer pact marked as deployed. Recovery depends on your pipeline structure.
-
-**Production pipeline (verification and deployment in separate stages):**
+After the hotfix is deployed with pact disabled, the Broker is stale — it still has the old consumer pact marked as deployed.
 
 Recovery is a single commit:
 1. Set `PACT_ENABLED` back to `true`
 2. Consumer updates pact test to match the new reality
-3. Verification fails against old deployed pact (expected) — but it's in the build stage, not blocking deploy
-4. `can-i-deploy` passes, deploy runs, `record-deployment` updates the Broker
+3. Pact job: verification fails against old deployed pact (expected) — pact job fails
+4. Deploy job: `can-i-deploy` passes, deploy runs, `record-deployment` updates the Broker
 5. Next pipeline run: verification passes
 
-**Our monorepo pipeline (everything in one job):**
+This works because our pipeline separates verification (pact job) from deployment recording (deploy-and-test job). Verification failure doesn't block `record-deployment`.
 
-Recovery requires two commits because verification failing blocks `record-deployment`:
-1. Consumer updates pact test + `continue-on-error` on provider verification
+**If your pipeline runs verification and record-deployment in the same job** (as ours did before the restructuring), recovery requires two commits:
+1. Consumer updates pact test + `continue-on-error: true` on provider verification
 2. Verification fails (expected), but pipeline continues to `record-deployment`
 3. Second commit: remove `continue-on-error` — verification passes
 
+This is a valid approach — `continue-on-error` is a real CI pattern for absorbing a known one-time failure. The downside is it masks real failures for one pipeline run, and requires a cleanup commit.
+
 See [09-coordinated-breaking-changes.md](09-coordinated-breaking-changes.md) → "The Friday-to-Monday Recovery" for the full exercise.
-
-> **TODO:** Restructure the CI pipeline to separate verification from deployment recording. This matches the production pattern and eliminates the need for `continue-on-error` during recovery.
-
-### Cleanup checklist
 
 ### Cleanup checklist
 

@@ -124,7 +124,11 @@ jobs:
       - name: Validate K8s manifests (policy)
         run: npm run validate:manifests
 
-  # Pact contract tests — runs against persistent PactFlow Broker.
+  # Pact contract tests — build & test stage.
+  # Runs consumer tests, publishes pacts, verifies provider.
+  # Does NOT run can-i-deploy or record-deployment — those belong
+  # in the deploy stage (deploy-and-test job) so that verification
+  # failure doesn't block deployment recording.
   # Set PACT_ENABLED to false to skip (break-glass — see docs/pact/break-glass.md).
   pact:
     needs: install
@@ -167,12 +171,18 @@ jobs:
         env:
           CI: "true"
 
-      - name: Can-i-deploy + record deployment
-        run: bash scripts/pact/can-i-deploy.sh
-        env:
-          CI: "true"
-
-  # Kind cluster deploy + infrastructure/integration tests
+  # Kind cluster deploy + infrastructure/integration tests.
+  # This is the slowest job in the pipeline. Future optimisations:
+  # TODO: Docker layer caching — use docker/setup-buildx-action + cache mounts
+  #       so only changed services rebuild (biggest win)
+  # TODO: Ollama model caching — cache llama3.2:1b between runs instead of
+  #       pulling every time (~30-60s saved)
+  # TODO: Chaos only on main — skip chaos experiments on feature branches,
+  #       run only after merge. In a real org, chaos runs as a downstream
+  #       pipeline against a QA/staging environment, not dev. It triggers
+  #       after a successful deploy, runs independently, and reports results
+  #       via dashboard/Slack. Prod promotion doesn't gate on it — chaos
+  #       validates resilience over time, not per-commit correctness.
   deploy-and-test:
     needs: [lint, typecheck, validate-k8s, pact]
     if: always() && needs.lint.result == 'success' && needs.typecheck.result == 'success' && needs.validate-k8s.result == 'success' && (needs.pact.result == 'success' || needs.pact.result == 'skipped')
@@ -239,6 +249,24 @@ jobs:
           kubectl rollout status deployment/service-b --timeout=60s
           kubectl rollout status deployment/service-a --timeout=60s
           kubectl rollout status deployment/service-c --timeout=120s
+
+      # --- Pact deploy stage (can-i-deploy + record-deployment) ---
+      # Runs after the actual deploy, separate from the pact job (build & test stage).
+      # This matches the production pattern: verification failure in the pact job
+      # doesn't block record-deployment here. Recovery after break-glass is a
+      # single commit — no continue-on-error needed.
+
+      - name: Create .env from secrets
+        if: vars.PACT_ENABLED != 'false'
+        run: |
+          echo "PACT_BROKER_BASE_URL=${{ secrets.PACT_BROKER_BASE_URL }}" >> .env
+          echo "PACT_BROKER_TOKEN=${{ secrets.PACT_BROKER_TOKEN }}" >> .env
+
+      - name: Can-i-deploy + record deployment
+        if: vars.PACT_ENABLED != 'false'
+        run: bash scripts/pact/can-i-deploy.sh
+        env:
+          CI: "true"
 
       # --- Infrastructure tests (BATS) ---
 
