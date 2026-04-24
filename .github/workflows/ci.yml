@@ -125,10 +125,10 @@ jobs:
         run: npm run validate:manifests
 
   # Pact contract tests — runs against persistent PactFlow Broker.
-  # [skip pact] in commit message skips this job (break-glass — see docs/pact/break-glass.md).
+  # Set PACT_ENABLED to false to skip (break-glass — see docs/pact/break-glass.md).
   pact:
     needs: install
-    if: "!contains(github.event.head_commit.message, '[skip pact]')"
+    if: vars.PACT_ENABLED != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
