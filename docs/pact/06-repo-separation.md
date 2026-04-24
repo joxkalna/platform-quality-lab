@@ -419,6 +419,35 @@ Consumer publishes pact
    Deploy + record-deployment
 ```
 
+## Monorepo Recovery Gap
+
+In multi-repo, recovering from a break-glass hotfix is clean: consumer publishes new pact → `enablePending` absorbs the gap → provider verifies → done. Each repo has its own pipeline, so the consumer can `record-deployment` before the provider even runs.
+
+In a monorepo, consumer and provider share a single pipeline. The pipeline order is:
+
+```
+consumer pact test → publish → provider verification → can-i-deploy → record-deployment
+```
+
+The problem: provider verification runs **before** `record-deployment`. After a break-glass hotfix (where pact was skipped), the Broker still has the old consumer pact marked as deployed. Provider verification checks `{ deployedOrReleased: true }` and pulls the old pact — which expects a field the provider no longer returns.
+
+The new consumer pact (without the field) was just published in the same pipeline run, but it's not yet recorded as deployed. So verification fails.
+
+### Why not reorder the pipeline?
+
+Moving `record-deployment` before provider verification would fix the recovery case, but it means every normal run records a deployment **before** the provider has verified the contract. That's telling the Broker "this version is live" when it hasn't been tested yet. Other services running `can-i-deploy` would see an unverified pact as the deployed version.
+
+The pipeline order exists for a reason: verify first, record after.
+
+### The fix: two-commit recovery
+
+1. **Commit 1:** Consumer removes the assertion + `continue-on-error` on provider verification. Verification fails (expected), but `record-deployment` runs and updates the Broker.
+2. **Commit 2:** Remove `continue-on-error`. Verification passes because the Broker now has the new pact as deployed.
+
+This is the unavoidable cost of skipping pact in a monorepo. Multi-repo doesn't have this problem because each service records its own deployment independently.
+
+See `09-coordinated-breaking-changes.md` → "Proof — The Friday-to-Monday Recovery" for the full exercise.
+
 ## Monorepo Simplifications
 
 In this learning project, several things are simpler because everything is in one repo:

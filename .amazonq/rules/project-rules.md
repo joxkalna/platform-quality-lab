@@ -105,6 +105,7 @@ Adding Service C creates a new service boundary and an opportunity to exercise r
 | Add new provider | `phase6/ai-service-part2` | Initialised Service C on PactFlow, consumer wrote first pact, provider verified | Full provider onboarding workflow (second time — reinforced the process) |
 | Breaking change (change type) | `learning-break-pact` | Changed `confidence` from number to string, observed Pact catch the type mismatch | Pact catches breaking changes before production. Also exposed monorepo limitation: coordinated changes in one commit still fail because provider verifies against *deployed* pact |
 | Expand and Contract (4 MRs) | `phase6/pact3` | Used a `priority` field to exercise the full production-safe pattern — see MR details below | Additive changes are safe, consumer-driven contracts work, safe removal requires no consumer dependency |
+| Friday-to-Monday recovery (`severity`) | `phase6/pact3` | Simulated a real hotfix: added `severity`, skipped pact to deploy removal, recovered Monday by updating consumer and re-enabling pact | `PACT_ENABLED` variable is reliable for break-glass, recovery is a single consumer MR, Broker self-heals when new pact is published |
 
 **Exercises remaining:**
 
@@ -201,11 +202,22 @@ Exercising the production Expand and Contract pattern from `09-coordinated-break
 | MR | Status | Name | What changes | Pact state after merge |
 |---|---|---|---|---|
 | 1 | ✅ | Expand — provider adds `priority` | Service C returns `priority` in `/classify` response. Consumer pact unchanged — does not assert on `priority` yet. Also: re-enabled pact job, registered `qa` environment, rewrote `can-i-deploy.sh` for 3-environment flow | Provider returns extra field, consumer ignores it — backwards compatible |
-| 2 | Current | Migrate — consumer starts using `priority` | Consumer pact test adds `priority: MatchersV3.string(...)` assertion. Provider already returns it → verification passes | Both sides agree on `priority` — consumer depends on it |
-| 3 | Pending | Contract — consumer stops asserting `priority` | Consumer pact test removes `priority` assertion. Provider still returns it — extra fields ignored | Consumer no longer depends on `priority` — safe to remove from provider |
-| 4 | Pending | Cleanup — provider removes `priority` | Service C removes `priority` from response. `can-i-deploy` confirms no consumer depends on it | Code back to starting state, Broker state clean, full lifecycle exercised |
+| 2 | ✅ | Migrate — consumer starts using `priority` | Consumer pact test adds `priority: MatchersV3.string(...)` assertion. Provider already returns it → verification passes | Both sides agree on `priority` — consumer depends on it |
+| 3 | ✅ | Contract — consumer stops asserting `priority` | Consumer pact test removes `priority` assertion. Provider still returns it — extra fields ignored | Consumer no longer depends on `priority` — safe to remove from provider |
+| 4 | ✅ | Cleanup — provider removes `priority` | Service C removes `priority` from response. `can-i-deploy` confirms no consumer depends on it | Code back to starting state, Broker state clean, full lifecycle exercised |
 
-After MR 4:
+**Friday-to-Monday recovery exercise (`severity` field):**
+
+| Step | What happened | Pipeline result |
+|---|---|---|
+| Setup | Provider added `severity` (SEV1–SEV4) + consumer added assertion — both merged to main | ✅ Both sides depend on `severity` |
+| Friday hotfix | Provider removed `severity`, `PACT_ENABLED=false` in repo variables | ✅ Pact skipped, hotfix deployed |
+| Monday recovery (commit 1) | Consumer removed `severity` assertion, `PACT_ENABLED=true`, `continue-on-error` on provider verification | ✅ Provider verification fails against old deployed pact (expected), `record-deployment` updates Broker |
+| Monday recovery (commit 2) | Removed `continue-on-error` | ✅ Provider verification passes, pipeline fully clean |
+
+**CI improvement discovered:** `[skip pact]` in commit messages doesn't work on PR merges — `github.event.head_commit.message` only sees the merge commit. Replaced with `PACT_ENABLED` repository variable (`vars.PACT_ENABLED != 'false'`).
+
+After exercises:
 - k6 load testing framework
 - Integration tests for Service C (deferred to Phase 7 golden sets — Pact covers API shape)
 
