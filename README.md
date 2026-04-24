@@ -88,7 +88,7 @@ install → lint ──────────┐
 - [x] Phase 4: Failure injection (pod kill, resource pressure, dependency failure, latency)
 - [x] Phase 5: CI guardrails (Pact contracts, manifest validation, chaos gates, ESLint rules)
 - [ ] Phase 6: AI service (Service C + Pact evolution + k6 load testing)
-- [ ] Phase 7: AI quality guardrails (golden sets, accuracy thresholds, consistency tests)
+- [ ] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
 
 ## Documentation
 
