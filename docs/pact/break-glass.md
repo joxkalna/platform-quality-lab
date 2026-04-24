@@ -44,29 +44,42 @@ Now push the fix. Provider verification may still fail against the old deployed 
 
 **Risk:** If the fix is wrong, PactFlow thinks it's deployed when it isn't. Clean up by recording the actual deployed version after the real deployment.
 
-### Option 3: Allow provider verification to fail (monorepo only)
-
-For monorepo breaking changes where both sides change in one commit, allow provider verification to fail but rely on `can-i-deploy` (same-commit check) as the gate:
-
-```yaml
-- name: Run provider verification
-  continue-on-error: true
-  run: npm run test:pact:verify
-```
-
-The verification results are still published to PactFlow (so you can see what failed), but the pipeline continues to `can-i-deploy` which checks both services at the same commit.
-
-**When to use:** Coordinated breaking changes in a monorepo where both consumer and provider are updated together.
-
 ## After the Emergency
+
+### Recovery (re-enabling Pact)
+
+After the hotfix is deployed with pact disabled, the Broker is stale — it still has the old consumer pact marked as deployed. Recovery depends on your pipeline structure.
+
+**Production pipeline (verification and deployment in separate stages):**
+
+Recovery is a single commit:
+1. Set `PACT_ENABLED` back to `true`
+2. Consumer updates pact test to match the new reality
+3. Verification fails against old deployed pact (expected) — but it's in the build stage, not blocking deploy
+4. `can-i-deploy` passes, deploy runs, `record-deployment` updates the Broker
+5. Next pipeline run: verification passes
+
+**Our monorepo pipeline (everything in one job):**
+
+Recovery requires two commits because verification failing blocks `record-deployment`:
+1. Consumer updates pact test + `continue-on-error` on provider verification
+2. Verification fails (expected), but pipeline continues to `record-deployment`
+3. Second commit: remove `continue-on-error` — verification passes
+
+See [09-coordinated-breaking-changes.md](09-coordinated-breaking-changes.md) → "The Friday-to-Monday Recovery" for the full exercise.
+
+> **TODO:** Restructure the CI pipeline to separate verification from deployment recording. This matches the production pattern and eliminates the need for `continue-on-error` during recovery.
+
+### Cleanup checklist
+
+### Cleanup checklist
 
 1. **Verify the contracts are correct** — run the full pipeline without any skips
 2. **Publish the updated pact** — ensure the new consumer pact is on PactFlow
 3. **Check PactFlow UI** — confirm all verification results are green
 4. **Record the actual deployment** — if you used Option 2, verify the recorded version matches what's actually deployed
-5. **Document what happened** — add a note to the incident log explaining why the break-glass was used
-
-## How This Works in CI
+5. **Remove all workarounds** — `continue-on-error`, `PACT_ENABLED=false`, etc.
+6. **Document what happened** — add a note to the incident log explaining why the break-glass was used
 
 The `PACT_ENABLED` repository variable controls the pact job:
 

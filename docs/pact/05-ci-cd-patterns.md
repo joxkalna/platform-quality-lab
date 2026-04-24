@@ -63,6 +63,20 @@ deploy:prod:
     PACTICIPANTS: "service-a;service-b"
 ```
 
+## Monorepo Pipeline Structure Gap
+
+The production pipeline pattern above separates verification (build/test stage) from deployment recording (deploy stage). This means verification failure doesn't block `record-deployment` — the deploy stage runs independently if `can-i-deploy` passes.
+
+Our monorepo pipeline doesn't follow this pattern yet. Everything runs in a single pact job:
+
+```
+consumer test → publish → verify → can-i-deploy → record-deployment
+```
+
+This means verification failing blocks `record-deployment`, which creates problems during recovery from break-glass hotfixes. See [06-repo-separation.md](06-repo-separation.md#the-real-fix-separate-stages) and [09-coordinated-breaking-changes.md](09-coordinated-breaking-changes.md#the-real-problem-pipeline-structure) for the full explanation.
+
+> **TODO:** Restructure the CI pipeline to move `can-i-deploy` and `record-deployment` into the deploy stage (`deploy-and-test` job), matching the production pattern.
+
 ## Branch vs Main — What Runs Where
 
 This is the rule that prevents Broker state pollution. Getting this wrong is how you end up with feature branch pacts recorded as "deployed", which breaks `can-i-deploy` for every team.
