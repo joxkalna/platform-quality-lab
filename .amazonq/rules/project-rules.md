@@ -202,9 +202,38 @@ Branch: `phase6/ai-service-part2`
 - Branch exists as proof of the learning exercise
 - **Unresolved:** In a monorepo, a coordinated breaking change (both consumer and provider update in one commit) still fails provider verification because it checks against the *deployed* pact, not the branch pact. `continue-on-error` and `[skip pact]` are workarounds, not solutions. The proper fix for monorepo breaking changes is still an open question — need to investigate whether Pact's `consumerVersionSelectors` can be configured to only verify against the current branch during breaking changes, or whether this is a fundamental limitation of Pact in monorepos.
 
-**Next:**
-- Revert breaking change (don't merge the learning branch)
-- Resolve the monorepo breaking change workflow — how to deploy a coordinated API change without [skip pact] or continue-on-error
+**Next — Expand and Contract exercise (4 MRs on `phase6/pact3` branch):**
+
+Exercising the production Expand and Contract pattern from `09-coordinated-breaking-changes.md` using a dummy `priority` field. Each MR is independently reviewable, rollback-safe, and exercises the real Pact lifecycle. No `[skip pact]`, no `continue-on-error`, no break-glass.
+
+**MR 1** ✅ Re-enable pact + provider adds `priority` field (expand step)
+- Removed `if: false` from pact job, restored main to push triggers
+- Registered `qa` environment on PactFlow (now dev, qa, prod)
+- `can-i-deploy.sh` rewritten: per-environment flow on main (dev → qa → prod), branch check only on feature branches, `--retry-while-unknown 10 --retry-interval 20`
+- Service C adds `priority: string` (P1-P4 mapped from category)
+- Consumer pact unchanged — does not assert on `priority` yet
+- Docs updated: deploy stage pattern, branch vs main guards, 3-environment model
+- Project rules: Hard Rules section added
+- Pushed, waiting for CI
+
+**MR 2** — Consumer starts using `priority` field
+- Consumer pact test adds `priority: MatchersV3.string(...)` assertion
+- Provider already returns it → verification passes
+- Merge to main → both sides agree on the new contract
+- This is the "migrate" step — consumer now depends on the new field
+
+**MR 3** — Consumer stops asserting on `priority` (contract step)
+- Consumer pact test removes `priority` assertion
+- Provider still returns it — verification passes (extra fields ignored)
+- This simulates the reverse: consumer no longer needs the field
+
+**MR 4** — Provider removes `priority` field (cleanup)
+- Service C removes `priority` from response
+- `can-i-deploy` confirms no consumer depends on it → safe to remove
+- Final state: code is back to where it started, Broker state is clean, pact is fully operational
+- All 4 MRs exercised the full Pact lifecycle without any break-glass
+
+After MR 4:
 - k6 load testing framework
 - Integration tests for Service C (deferred to Phase 7 golden sets — Pact covers API shape)
 
