@@ -470,19 +470,32 @@ Broker state after Friday: consumer's deployed pact still expects `severity`, bu
 
 1. Set `PACT_ENABLED` back to `true` in GitHub repo variables
 2. Consumer removes `severity` assertion from pact test
-3. Push — pipeline runs with pact re-enabled:
-   - Consumer pact generated without `severity`
-   - Published to Broker — replaces the old pact that expected `severity`
-   - Provider verification passes — provider doesn't return `severity`, pact doesn't expect it
-   - `can-i-deploy` green — both sides agree
+3. First push — `continue-on-error: true` on provider verification:
+   - Consumer pact published without `severity` ✅
+   - Provider verification fails against old deployed pact (still expects `severity`) — expected, continues
+   - `can-i-deploy` + `record-deployment` records the new consumer version as deployed
+   - Broker now knows the deployed consumer doesn't expect `severity`
+4. Second push — remove `continue-on-error`:
+   - Provider verification passes — only the new deployed pact (without `severity`) is checked
+   - Pipeline fully green, all workarounds removed
+
+### Why two commits?
+
+The Broker's `{ deployedOrReleased: true }` selector pulls the **last recorded deployed** consumer pact. On Friday, pact was skipped — so the Broker never learned about the hotfix. The old pact (with `severity`) is still marked as deployed.
+
+The new consumer pact (without `severity`) is published in the first Monday commit, but provider verification runs *before* `record-deployment`. So verification still sees the old deployed pact and fails.
+
+`continue-on-error` absorbs this one-time gap. After `record-deployment` runs, the Broker knows the new version is deployed. The second commit removes the workaround and verification passes cleanly.
+
+This is the unavoidable cost of skipping pact on Friday — one recovery commit needs a weakened gate.
 
 ### What this proved
 
 - The `PACT_ENABLED` variable reliably skips pact in an emergency
-- Recovery is a single MR: consumer drops the assertion, re-enable pact, push
-- The provider hotfix (already deployed Friday) doesn't need a separate MR — it's already in production
-- Broker state self-heals when the new consumer pact is published — no manual Broker cleanup needed
-- The whole recovery is one pipeline run, not multiple
+- Recovery requires two commits, not one — the first absorbs the gap with `continue-on-error`, the second removes the workaround
+- The old deployed pact persists on the Broker until `record-deployment` runs with the new version
+- Provider verification checks `{ deployedOrReleased: true }` which pulls the old pact — this is by design (safety net) but means recovery can't be a single clean commit
+- Broker state self-heals once `record-deployment` records the new consumer version
 
 ## Related Docs
 
