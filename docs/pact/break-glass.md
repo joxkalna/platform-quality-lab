@@ -12,17 +12,15 @@ Use this procedure **only** when:
 
 ## Options (in order of preference)
 
-### Option 1: Skip Pact in CI (fastest)
+### Option 1: Disable Pact via repository variable (fastest)
 
-Add `[skip pact]` to the commit message:
+Set `PACT_ENABLED` to `false` in GitHub Actions repository variables:
 
-```bash
-git commit -m "fix: critical response format change [skip pact]"
-```
+**Settings → Secrets and variables → Actions → Variables → `PACT_ENABLED` = `false`**
 
 The pact job is skipped entirely. Lint, typecheck, K8s validation, and deploy still run. The fix deploys without contract verification.
 
-**After deploying:** Run the pipeline again without `[skip pact]` to verify contracts are correct and publish the updated pact to the Broker.
+**After deploying:** Set `PACT_ENABLED` back to `true` (or delete the variable) to re-enable pact.
 
 ### Option 2: Force-record deployment on the Broker
 
@@ -70,14 +68,14 @@ The verification results are still published to PactFlow (so you can see what fa
 
 ## How This Works in CI
 
-The `[skip pact]` flag is checked in the pact job condition:
+The `PACT_ENABLED` repository variable controls the pact job:
 
 ```yaml
 pact:
-  if: "!contains(github.event.head_commit.message, '[skip pact]')"
+  if: vars.PACT_ENABLED != 'false'
 ```
 
-When skipped, the deploy-and-test job still runs because it allows pact to be skipped:
+When set to `false`, the pact job is skipped. The deploy-and-test job still runs because it allows pact to be skipped:
 
 ```yaml
 deploy-and-test:
@@ -88,6 +86,8 @@ deploy-and-test:
     needs.validate-k8s.result == 'success' &&
     (needs.pact.result == 'success' || needs.pact.result == 'skipped')
 ```
+
+When the emergency is over, set `PACT_ENABLED` back to `true` or delete the variable — the condition defaults to running pact when the variable doesn't exist.
 
 ## In a Real Org
 
