@@ -6,6 +6,25 @@ This is a learning project for SDET/platform quality engineering skills, mapped 
 ## Project Mindset
 Treat this project as if it's a real service running in a large organisation. Use production-grade tooling, patterns, and practices — even if the services themselves are simple. The services are intentionally trivial because the focus is on the platform, pipeline, and quality engineering around them — not the business logic. Never dismiss a tool or pattern as "overkill" — if it's used in real orgs, it belongs here.
 
+## Hard Rules — Non-Negotiable
+These rules exist because they were violated during development and caused real damage. They are not guidelines — they are absolute.
+
+1. **Never run `record-deployment`, `publish`, or `can-i-deploy` from the terminal.** These are CI-only operations. The pipeline is the single source of truth for what's deployed. Running them locally pollutes the Broker with untraceable versions and breaks `can-i-deploy` for every service. The only local Pact commands allowed are `npm run test:pact` (consumer tests) and `npm run test:pact:verify` (provider verification).
+
+2. **Never record deployments from feature branches.** `record-deployment` only runs on the protected main branch, after a real deployment. A feature branch pact is a proposal, not a deployment. Recording it as deployed pollutes the Broker's `deployedOrReleased` selectors and causes provider verification failures when the branch is reverted.
+
+3. **Never modify scripts that are designed to be reusable across projects based on a single project's quirks.** `initialise-provider.sh` mirrors the pattern from a production provider initialisation repo. If it fails on PactFlow but works on a self-hosted broker, the fix belongs in PactFlow-specific documentation — not in the script itself.
+
+4. **The pipeline owns the Pact lifecycle.** Pact state (versions, deployments, verification results) must only be created by CI. Manual Broker operations (environment registration, provider initialisation) are one-time setup steps documented in `scripts/` — everything else flows through the pipeline.
+
+### What went wrong (learning log)
+- `learning-break-pact` branch ran `record-deployment` from a feature branch, polluting PactFlow with experimental pacts as "deployed"
+- When the branch was reverted, provider verification still pulled the old deployed pact via `deployedOrReleased` selector and failed
+- Fix required `[skip pact]` to merge, then `if: false` to disable pact entirely
+- Broker state had to be cleaned up before pact could be re-enabled
+- During recovery, `record-deployment` was run from the terminal to create a baseline — this was wrong in principle (pipeline should own it) but was needed as a one-time bootstrap to unblock the first CI run
+- `initialise-provider.sh` was incorrectly modified to work around a PactFlow-specific API difference — reverted because the script is meant to be reusable
+
 ## Tech Stack
 - Language: TypeScript / Node.js (Express)
 - Container: Docker (multi-stage builds, non-root user)
@@ -183,9 +202,38 @@ Branch: `phase6/ai-service-part2`
 - Branch exists as proof of the learning exercise
 - **Unresolved:** In a monorepo, a coordinated breaking change (both consumer and provider update in one commit) still fails provider verification because it checks against the *deployed* pact, not the branch pact. `continue-on-error` and `[skip pact]` are workarounds, not solutions. The proper fix for monorepo breaking changes is still an open question — need to investigate whether Pact's `consumerVersionSelectors` can be configured to only verify against the current branch during breaking changes, or whether this is a fundamental limitation of Pact in monorepos.
 
-**Next:**
-- Revert breaking change (don't merge the learning branch)
-- Resolve the monorepo breaking change workflow — how to deploy a coordinated API change without [skip pact] or continue-on-error
+**Next — Expand and Contract exercise (4 MRs on `phase6/pact3` branch):**
+
+Exercising the production Expand and Contract pattern from `09-coordinated-breaking-changes.md` using a dummy `priority` field. Each MR is independently reviewable, rollback-safe, and exercises the real Pact lifecycle. No `[skip pact]`, no `continue-on-error`, no break-glass.
+
+**MR 1** ✅ Re-enable pact + provider adds `priority` field (expand step)
+- Removed `if: false` from pact job, restored main to push triggers
+- Registered `qa` environment on PactFlow (now dev, qa, prod)
+- `can-i-deploy.sh` rewritten: per-environment flow on main (dev → qa → prod), branch check only on feature branches, `--retry-while-unknown 10 --retry-interval 20`
+- Service C adds `priority: string` (P1-P4 mapped from category)
+- Consumer pact unchanged — does not assert on `priority` yet
+- Docs updated: deploy stage pattern, branch vs main guards, 3-environment model
+- Project rules: Hard Rules section added
+- Pushed, waiting for CI
+
+**MR 2** — Consumer starts using `priority` field
+- Consumer pact test adds `priority: MatchersV3.string(...)` assertion
+- Provider already returns it → verification passes
+- Merge to main → both sides agree on the new contract
+- This is the "migrate" step — consumer now depends on the new field
+
+**MR 3** — Consumer stops asserting on `priority` (contract step)
+- Consumer pact test removes `priority` assertion
+- Provider still returns it — verification passes (extra fields ignored)
+- This simulates the reverse: consumer no longer needs the field
+
+**MR 4** — Provider removes `priority` field (cleanup)
+- Service C removes `priority` from response
+- `can-i-deploy` confirms no consumer depends on it → safe to remove
+- Final state: code is back to where it started, Broker state is clean, pact is fully operational
+- All 4 MRs exercised the full Pact lifecycle without any break-glass
+
+After MR 4:
 - k6 load testing framework
 - Integration tests for Service C (deferred to Phase 7 golden sets — Pact covers API shape)
 
@@ -272,10 +320,13 @@ See [CHAOS.md](CHAOS.md) for full experiment log, learnings, and Phase 5 guardra
 ### Architecture
 - **Service A** is the consumer — calls Service B's `/info` endpoint
 - **Service B** is the provider — serves `/info`, verified against consumer pacts
+- **Service C** is the provider — serves `/classify`, verified against consumer pacts
 - **PactFlow** is the persistent Broker — stores pacts, verification results, deployment history
 - Consumer tests generate pact files locally, publish to PactFlow in CI only
 - Provider verification runs against PactFlow, publishes results in CI
-- `can-i-deploy` gates deployment after verification passes
+- `can-i-deploy` and `record-deployment` are embedded inside each deploy stage, not standalone jobs
+- `record-deployment` only runs on the protected main branch — never from feature branches
+- Feature branches: test + publish + verify only — no can-i-deploy, no record-deployment
 
 ### Broker
 - PactFlow (SaaS) for persistent history across pipeline runs (30-day free trial, paid after)
@@ -285,8 +336,10 @@ See [CHAOS.md](CHAOS.md) for full experiment log, learnings, and Phase 5 guardra
 - Token auth (PactFlow) — not username/password
 
 ### Environments
-- `dev` — branch builds (feature branches, PRs)
-- `prod` — main branch deployments
+- `dev` — first deploy target on main (mirrors a dev/staging environment)
+- `qa` — second deploy target on main (mirrors a QA environment)
+- `prod` — final deploy target on main (mirrors production)
+- Feature branches do NOT record deployments to any environment
 - Registered on PactFlow via `./scripts/deploy-pact-broker.sh` (one-time)
 
 ### Commands
@@ -301,7 +354,7 @@ See [CHAOS.md](CHAOS.md) for full experiment log, learnings, and Phase 5 guardra
 - PactFlow over self-hosted — persistent history, zero infrastructure, `can-i-deploy` works across pipeline runs
 - Token auth — PactFlow uses API tokens, not username/password
 - Publish only in CI — `publish.sh` blocks locally to prevent dirty/untraceable versions
-- Never publish pacts, record deployments, or run can-i-deploy locally — only `initialise-provider.sh` runs locally as a one-time setup. Everything else goes through the pipeline
+- Never publish pacts, record deployments, or run can-i-deploy locally — only `initialise-provider.sh` and `deploy-pact-broker.sh` run locally as one-time setup. Everything else goes through the pipeline. See "Hard Rules" at the top of this file
 - `failIfNoPactsFound: false` — provider pipeline passes before any consumer publishes (avoids chicken-and-egg)
 - `enablePending: true` — new pacts don't break the provider until verified
 - Monorepo `can-i-deploy` checks both services at the same commit version (production multi-repo pattern documented in comments)

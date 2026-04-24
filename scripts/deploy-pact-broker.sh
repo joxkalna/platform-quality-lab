@@ -25,7 +25,7 @@ fi
 echo "✓ Broker is reachable"
 
 # Register environments
-for ENV_NAME in dev prod; do
+for ENV_NAME in dev qa prod; do
   if npx pact-broker list-environments \
     --broker-base-url "$BROKER_URL" \
     --broker-token "$TOKEN" 2>/dev/null | grep -q "$ENV_NAME"; then

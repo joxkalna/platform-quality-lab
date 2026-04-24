@@ -2,7 +2,12 @@
 set -euo pipefail
 
 # Checks if services are safe to deploy, then records deployment.
-# Runs after provider verification.
+# Follows the production pattern:
+#   can-i-deploy(env) → deploy(env) → record-deployment(env)
+# repeated per environment (dev, qa, prod) on main only.
+#
+# Feature branches: compatibility check only (no record-deployment).
+# Main branch: per-environment can-i-deploy + record-deployment.
 #
 # Usage: ./scripts/pact/can-i-deploy.sh
 
@@ -15,87 +20,92 @@ TOKEN="$PACT_BROKER_TOKEN"
 COMMIT=$(git rev-parse --short=8 HEAD)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-# Determine environment: main → prod, everything else → dev
-ENV="dev"
-[[ "$BRANCH" == "main" ]] && ENV="prod"
-
-echo "=== Can-I-Deploy ==="
-echo "  Environment: $ENV"
-echo "  Version:     $COMMIT"
+SERVICES=(service-a service-b service-c)
 
 # --- Multi-repo pattern (production) ---
 # Each service has its own pipeline and commit SHA.
-# can-i-deploy checks: "is my version compatible with what's currently deployed?"
+# can-i-deploy checks one service against what's deployed to a specific env:
 #
-# Consumer pipeline:
-#   npx pact-broker can-i-deploy \
+#   pact-broker can-i-deploy \
 #     --pacticipant service-a \
 #     --version "$COMMIT" \
 #     --to-environment "$ENV" \
 #     --broker-base-url "$BROKER_URL" \
 #     --broker-token "$TOKEN" \
-#     --retry-while-unknown 5 \
-#     --retry-interval 10
-#
-# Provider pipeline:
-#   npx pact-broker can-i-deploy \
-#     --pacticipant service-b \
-#     --version "$COMMIT" \
-#     --to-environment "$ENV" \
-#     --broker-base-url "$BROKER_URL" \
-#     --broker-token "$TOKEN" \
-#     --retry-while-unknown 5 \
-#     --retry-interval 10
+#     --retry-while-unknown 10 \
+#     --retry-interval 20
 
 # --- Monorepo workaround ---
-# Both services share a commit, so we check them against each other
+# All services share a commit, so we check them against each other
 # at the same version instead of against what's deployed.
 # This avoids the version mismatch when the deployed version (from a
 # previous pipeline run) differs from the current commit.
-echo "→ Checking service-a + service-b + service-c compatibility..."
-npx pact-broker can-i-deploy \
-  --pacticipant service-a \
-  --version "$COMMIT" \
-  --pacticipant service-b \
-  --version "$COMMIT" \
-  --pacticipant service-c \
-  --version "$COMMIT" \
-  --broker-base-url "$BROKER_URL" \
-  --broker-token "$TOKEN"
+can_i_deploy() {
+  local env="$1"
+  echo "→ Checking compatibility for $env..."
+  npx pact-broker can-i-deploy \
+    --pacticipant service-a \
+    --version "$COMMIT" \
+    --pacticipant service-b \
+    --version "$COMMIT" \
+    --pacticipant service-c \
+    --version "$COMMIT" \
+    --broker-base-url "$BROKER_URL" \
+    --broker-token "$TOKEN" \
+    --retry-while-unknown 10 \
+    --retry-interval 20
+  echo "✓ Safe to deploy to $env"
+}
 
-echo "✓ Safe to deploy"
+record_deployment() {
+  local env="$1"
+  for service in "${SERVICES[@]}"; do
+    echo "→ Recording $service deployment to $env..."
+    npx pact-broker record-deployment \
+      --pacticipant "$service" \
+      --version "$COMMIT" \
+      --environment "$env" \
+      --broker-base-url "$BROKER_URL" \
+      --broker-token "$TOKEN"
+    echo "✓ $service recorded in $env"
+  done
+}
 
+echo "=== Can-I-Deploy ==="
+echo "  Version: $COMMIT"
+echo "  Branch:  $BRANCH"
 echo ""
-echo "=== Recording Deployments ==="
 
-# Only record deployments on main. Feature branches publish pacts and
-# verify them, but they don't represent a real deployment to any
-# environment. Recording deployments from branches pollutes the Broker
-# — deployedOrReleased selectors would pull branch pacts during
-# provider verification, causing failures when the branch is reverted
-# or merged without those changes.
-#
-# Pattern:
-#   main   → record-deployment (this version is live in $ENV)
-#   branch → skip (pact is published + verified, but not "deployed")
-
+# Feature branches: compatibility check only, no record-deployment.
+# A feature branch pact is a proposal, not a deployment.
+# Recording deployments from branches pollutes the Broker —
+# deployedOrReleased selectors would pull branch pacts during
+# provider verification, causing failures when the branch is
+# reverted or merged without those changes.
 if [[ "$BRANCH" != "main" ]]; then
+  can_i_deploy "dev (branch check)"
+  echo ""
   echo "→ Skipping record-deployment (branch: $BRANCH, not main)"
   echo "  Pacts are published and verified, but not recorded as deployed."
   echo "  record-deployment only runs after merge to main."
   exit 0
 fi
 
-for SERVICE in service-a service-b service-c; do
-  echo "→ Recording $SERVICE deployment to $ENV..."
-  npx pact-broker record-deployment \
-    --pacticipant "$SERVICE" \
-    --version "$COMMIT" \
-    --environment "$ENV" \
-    --broker-base-url "$BROKER_URL" \
-    --broker-token "$TOKEN"
-  echo "✓ $SERVICE recorded"
+# Main branch: per-environment can-i-deploy + record-deployment.
+# Each environment gets its own gate and its own deployment record,
+# mirroring the production pattern where each deploy stage runs:
+#   can-i-deploy(env) → deploy(env) → record-deployment(env)
+#
+# In our Kind cluster there's one actual deploy, but we record
+# against all three environments so the Broker tracks the full
+# lifecycle (dev → qa → prod).
+
+for ENV in dev qa prod; do
+  echo "--- ${ENV^^} ---"
+  can_i_deploy "$ENV"
+  echo "→ (Kind deploy happens once — recording $ENV)"
+  record_deployment "$ENV"
+  echo ""
 done
 
-echo ""
-echo "✓ All services deployed to $ENV"
+echo "✓ All services deployed to dev + qa + prod"
