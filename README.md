@@ -100,4 +100,4 @@ install → lint ──────────┐
 | [docs/manifest-validation.md](docs/manifest-validation.md) | K8s policy validation rules, packaging strategy |
 | [docs/code-quality-gates.md](docs/code-quality-gates.md) | Custom ESLint rules, shared coding standards path |
 | [docs/ci-dependencies.md](docs/ci-dependencies.md) | CI dependency audit, image strategy |
-| [docs/pact/](docs/pact/) | Contract testing — big picture, guides, CI/CD patterns |
+| [docs/pact/](docs/pact/) | Contract testing — big picture, guides, CI/CD patterns, break-glass, breaking changes |
