@@ -49,7 +49,7 @@ These rules exist because they were violated during development and caused real 
   - ✅ Chaos CI gates — all chaos experiments run in CI, fail pipeline if services don't survive
   - ✅ Code quality gates — custom ESLint rules for fetch timeouts and error handling
 - **Phase 6** AI service — add a new service wrapping an LLM API, deploy to Kind, wire into service mesh, load test with k6
-- **Phase 7** AI quality guardrails — non-deterministic assertion patterns, golden set benchmarks, accuracy thresholds as CI gates, consistency tests
+- **Phase 7** LLMOps — non-deterministic assertion patterns, golden set benchmarks, accuracy thresholds as CI gates, consistency tests, evaluation pipelines
 
 ## Phase 6 Load Testing with k6
 k6 is deferred to Phase 6 because Services A and B are HTTP pass-throughs with minimal resource usage (11-15Mi memory, 1-13m CPU). Load testing them confirms they handle concurrent requests but there's little to discover.
@@ -89,7 +89,7 @@ Same request function reused across transactions, same transaction reused across
 - Stress test on-demand or nightly (finds breaking points — too slow for every push)
 
 **Regression detection:**
-Compare current results against baseline metrics with a threshold (e.g. 10% deviation). If p95 latency increases by more than 10% from the previous run, the pipeline fails. Same pattern as the golden set accuracy threshold in Phase 7 — a ratchet that prevents silent degradation.
+Compare current results against baseline metrics with a threshold (e.g. 10% deviation). If p95 latency increases by more than 10% from the previous run, the pipeline fails. Same pattern as the golden set accuracy threshold in Phase 7 (LLMOps) — a ratchet that prevents silent degradation.
 
 ## Phase 6 Pact Evolution
 Adding Service C creates a new service boundary and an opportunity to exercise real-world Pact scenarios that don't come up when you only have two services.
@@ -133,7 +133,7 @@ configure test harness → start real service in container → send input → as
 **What this means concretely:**
 - Current integration tests (axios + HTTP assertions) stay for Services A and B
 - Service C gets an additional test layer: start the service in a container, send known inputs, assert the full output (not just status + shape, but content correctness)
-- This is where golden set assertions (Phase 7) plug in — the test harness sends golden set inputs and asserts on accuracy
+- This is where golden set assertions (Phase 7 LLMOps) plug in — the test harness sends golden set inputs and asserts on accuracy
 - Config validation with Zod for Service C — LLM endpoint, timeout, model parameters, temperature all need validation (bare `process.env` isn't enough when misconfiguration means wrong answers, not just errors)
 
 **Observability as a test layer:**
@@ -221,7 +221,7 @@ Exercising the production Expand and Contract pattern from `09-coordinated-break
 
 After exercises:
 - k6 load testing framework
-- Integration tests for Service C (deferred to Phase 7 golden sets — Pact covers API shape)
+- Integration tests for Service C (deferred to Phase 7 LLMOps golden sets — Pact covers API shape)
 
 ## Future Improvements
 Patterns to adopt after all phases are complete, to bring the services closer to production-grade:
@@ -252,7 +252,7 @@ Benefits:
 - Config is explicit — no hidden dependency on `process.env`
 - Same pattern used by NestJS (`NestFactory.create`), Express testing guides, and production Express/Fastify apps
 
-Apply this when refactoring after Phase 7 — it touches every service and every test that imports `app.ts`.
+Apply this when refactoring after Phase 7 (LLMOps) — it touches every service and every test that imports `app.ts`.
 
 ### Zod config for all services
 Service C uses Zod for config validation. Services A and B use bare `process.env`. Align all services to the Zod pattern so misconfiguration crashes at startup with a clear error, not silently at runtime.
@@ -383,7 +383,7 @@ Phase 5 is large — split into feature branches:
 All quality tooling in `scripts/` is structured for future extraction into a shared npm package published to GitHub Packages.
 - **Not yet** — only one tool (manifest validation) exists. Packaging a single module is premature
 - **After Phase 5** — 2–3 tools (manifest validation, chaos reporting, code quality). Shape is becoming clear but still evolving
-- **After Phase 7** — 4+ tools (add AI assertions, golden sets). This is the extraction point
+- **After Phase 7 (LLMOps)** — 4+ tools (add AI assertions, golden sets). This is the extraction point
 - **Package name:** `@joxkalna/platform-quality-utils` (scoped to GitHub username, private on GitHub Packages)
 - **Pattern:** Multi-entry package with `exports` map — consumers cherry-pick what they need (`/manifest-validation`, `/chaos`, `/ai-assertions`)
 - **Structure:** Extract to `packages/platform-quality-utils/` in this repo. Orchestrators in `scripts/` import from the package. Other projects in `development/` install via npm
