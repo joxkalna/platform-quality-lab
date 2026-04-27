@@ -124,7 +124,11 @@ jobs:
       - name: Validate K8s manifests (policy)
         run: npm run validate:manifests
 
-  # Pact contract tests — runs against persistent PactFlow Broker.
+  # Pact contract tests — build & test stage.
+  # Runs consumer tests, publishes pacts, verifies provider.
+  # Does NOT run can-i-deploy or record-deployment — those belong
+  # in the deploy stage (deploy-and-test job) so that verification
+  # failure doesn't block deployment recording.
   # Set PACT_ENABLED to false to skip (break-glass — see docs/pact/break-glass.md).
   pact:
     needs: install
@@ -167,12 +171,12 @@ jobs:
         env:
           CI: "true"
 
-      - name: Can-i-deploy + record deployment
-        run: bash scripts/pact/can-i-deploy.sh
-        env:
-          CI: "true"
-
-  # Kind cluster deploy + infrastructure/integration tests
+  # Kind cluster deploy + infrastructure/integration tests.
+  # This is the slowest job in the pipeline. Future optimisations:
+  # TODO: Docker layer caching — use docker/setup-buildx-action + cache mounts
+  #       so only changed services rebuild (biggest win)
+  # TODO: Ollama model caching — cache llama3.2:1b between runs instead of
+  #       pulling every time (~30-60s saved)
   deploy-and-test:
     needs: [lint, typecheck, validate-k8s, pact]
     if: always() && needs.lint.result == 'success' && needs.typecheck.result == 'success' && needs.validate-k8s.result == 'success' && (needs.pact.result == 'success' || needs.pact.result == 'skipped')
@@ -216,6 +220,10 @@ jobs:
           kind load docker-image service-a:latest --name platform-lab
           kind load docker-image service-b:latest --name platform-lab
           kind load docker-image service-c:latest --name platform-lab
+
+      - name: Load chaos images into Kind
+        if: github.ref == 'refs/heads/main'
+        run: |
           docker pull alexeiled/stress-ng:latest
           docker pull node:24-alpine
           kind load docker-image alexeiled/stress-ng:latest --name platform-lab
@@ -240,6 +248,24 @@ jobs:
           kubectl rollout status deployment/service-a --timeout=60s
           kubectl rollout status deployment/service-c --timeout=120s
 
+      # --- Pact deploy stage (can-i-deploy + record-deployment) ---
+      # Runs after the actual deploy, separate from the pact job (build & test stage).
+      # This matches the production pattern: verification failure in the pact job
+      # doesn't block record-deployment here. Recovery after break-glass is a
+      # single commit — no continue-on-error needed.
+
+      - name: Create .env from secrets
+        if: vars.PACT_ENABLED != 'false'
+        run: |
+          echo "PACT_BROKER_BASE_URL=${{ secrets.PACT_BROKER_BASE_URL }}" >> .env
+          echo "PACT_BROKER_TOKEN=${{ secrets.PACT_BROKER_TOKEN }}" >> .env
+
+      - name: Can-i-deploy + record deployment
+        if: vars.PACT_ENABLED != 'false'
+        run: bash scripts/pact/can-i-deploy.sh
+        env:
+          CI: "true"
+
       # --- Infrastructure tests (BATS) ---
 
       - name: Install BATS
@@ -254,32 +280,37 @@ jobs:
       - name: Run integration tests
         run: npm run test:integration
 
-      # --- Chaos experiments ---
+      # --- Chaos experiments (main only) ---
       # In a real org, chaos runs as a downstream pipeline against staging.
       # It triggers after deploy succeeds, runs independently, and reports
-      # results via dashboard/Slack. Prod promotion doesn't wait for it.
-      # Here we run inline because the Kind cluster is ephemeral to this job.
+      # results via dashboard/Slack. Prod promotion doesn't gate on it —
+      # chaos validates resilience over time, not per-commit correctness.
+      # Feature branches run infra + integration tests only.
 
       - name: Run chaos — pod kill
+        if: github.ref == 'refs/heads/main'
         run: |
           ./scripts/chaos/pod-kill.sh service-a
           ./scripts/chaos/pod-kill.sh service-b
 
       - name: Run chaos — dependency failure
+        if: github.ref == 'refs/heads/main'
         run: ./scripts/chaos/dependency-failure.sh
 
       - name: Run chaos — resource pressure
+        if: github.ref == 'refs/heads/main'
         run: ./scripts/chaos/resource-pressure.sh service-a all
 
       - name: Run chaos — latency injection
+        if: github.ref == 'refs/heads/main'
         run: ./scripts/chaos/latency-injection.sh
 
       - name: Chaos experiment summary
-        if: always()
+        if: always() && github.ref == 'refs/heads/main'
         run: npx tsx scripts/chaos/render-summary.ts >> $GITHUB_STEP_SUMMARY
 
       - name: Upload chaos reports
-        if: always()
+        if: always() && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v7
         with:
           name: chaos-reports
