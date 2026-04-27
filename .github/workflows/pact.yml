@@ -1,0 +1,55 @@
+# Pact contract tests — build & test stage.
+# Mirrors the production pipeline's build & test stage:
+#   pact_test → pact_publish → pact_verify
+# Does NOT run can-i-deploy or record-deployment — those belong
+# in the deploy stage so that verification failure doesn't block
+# deployment recording.
+
+name: Pact
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        required: true
+        type: string
+
+jobs:
+  pact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Restore node_modules
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            node_modules
+            services/service-a/node_modules
+            services/service-b/node_modules
+            services/service-c/node_modules
+          key: deps-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            deps-
+
+      - name: Create .env from secrets
+        run: |
+          echo "PACT_BROKER_BASE_URL=${{ secrets.PACT_BROKER_BASE_URL }}" >> .env
+          echo "PACT_BROKER_TOKEN=${{ secrets.PACT_BROKER_TOKEN }}" >> .env
+
+      - name: Run consumer pact tests
+        run: npm run test:pact
+
+      - name: Publish pacts to Broker
+        run: bash scripts/pact/publish.sh
+        env:
+          CI: "true"
+
+      - name: Run provider verification
+        run: npm run test:pact:verify
+        env:
+          CI: "true"

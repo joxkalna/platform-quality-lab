@@ -498,7 +498,7 @@ Provider goes first:
 6. `can-i-deploy` passes because the deployed consumer now expects the new format
 
 **Monorepo (shared pipeline):**
-Both sides change in one commit. The provider verification step will fail against the *deployed* pact (the old format still running in production), but `can-i-deploy` passes because it checks both services at the same commit version.
+Both sides change in one commit. The provider verification step will fail against the *deployed* pact (the old format still running in production), but `can-i-deploy` passes because the deployed versions in the Broker were recorded from the previous pipeline run where both sides agreed.
 
 The pipeline must allow provider verification to fail without blocking:
 ```yaml
@@ -507,12 +507,12 @@ The pipeline must allow provider verification to fail without blocking:
   run: npm run test:pact:verify
 ```
 
-The actual gate is `can-i-deploy` (same-commit check), not provider verification.
+The actual gate is `can-i-deploy` (checks against deployed versions), not provider verification.
 
 **Emergency scenario (Friday 4pm, both sides must change now):**
 1. Both sides change in one PR
 2. Provider verification fails against deployed pact — expected
-3. `can-i-deploy` (same-commit) passes — both sides agree at this version
+3. `can-i-deploy` passes — the deployed versions are compatible at this point
 4. Merge and deploy — once deployed, the deployed version matches
 5. Next pipeline run — provider verification passes because the deployed pact is now the new format
 

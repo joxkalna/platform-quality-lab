@@ -1,0 +1,182 @@
+# Kind cluster deploy + infrastructure/integration tests + chaos.
+# This is the slowest job in the pipeline. Future optimisations:
+# TODO: Docker layer caching — use docker/setup-buildx-action + cache mounts
+#       so only changed services rebuild (biggest win)
+# TODO: Ollama model caching — cache llama3.2:1b between runs instead of
+#       pulling every time (~30-60s saved)
+
+name: Deploy and Test
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        required: true
+        type: string
+      kind-version:
+        required: true
+        type: string
+
+jobs:
+  deploy-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Restore node_modules
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            node_modules
+            services/service-a/node_modules
+            services/service-b/node_modules
+            services/service-c/node_modules
+          key: deps-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            deps-
+
+      - name: Install Kind
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/${{ inputs.kind-version }}/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Create Kind cluster
+        run: kind create cluster --name platform-lab --config kind-config.yaml
+
+      - name: Build Docker images
+        run: |
+          docker build -t service-a:latest services/service-a
+          docker build -t service-b:latest services/service-b
+          docker build -t service-c:latest services/service-c
+
+      - name: Load images into Kind
+        run: |
+          kind load docker-image service-a:latest --name platform-lab
+          kind load docker-image service-b:latest --name platform-lab
+          kind load docker-image service-c:latest --name platform-lab
+
+      - name: Load chaos images into Kind
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker pull alexeiled/stress-ng:latest
+          docker pull node:24-alpine
+          kind load docker-image alexeiled/stress-ng:latest --name platform-lab
+          kind load docker-image node:24-alpine --name platform-lab
+
+      - name: Start Ollama (host)
+        run: |
+          docker pull ollama/ollama:latest
+          docker run -d --name ollama -p 11434:11434 ollama/ollama:latest
+          sleep 5
+          docker exec ollama ollama pull llama3.2:1b
+
+      - name: Deploy to Kind
+        run: |
+          # Ollama runs on the CI host — get the host IP accessible from Kind pods
+          HOST_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' platform-lab-control-plane)
+          kubectl apply -f k8s/service-b.yaml
+          kubectl apply -f k8s/service-a.yaml
+          # Patch Service C to point at host Ollama instead of in-cluster
+          sed "s|http://ollama:11434|http://${HOST_IP}:11434|" k8s/service-c.yaml | kubectl apply -f -
+          kubectl rollout status deployment/service-b --timeout=60s
+          kubectl rollout status deployment/service-a --timeout=60s
+          kubectl rollout status deployment/service-c --timeout=120s
+
+      # --- Pact deploy stage ---
+      # Mirrors the production pipeline's deploy stage + post-deploy review stage.
+      # The can-i-deploy.sh script contains the same 4 helper functions used in
+      # production shared pipelines:
+      #   pact_can_i_deploy            — core: --to-environment per service
+      #   pact_can_i_deploy_to_env     — main only: gate before deploy
+      #   pact_can_deploy_to_upper_env — feature branches: early feedback
+      #   pact_record_deployment       — main only: record after deploy
+      #
+      # Feature branches: pact_can_deploy_to_upper_env (early feedback against
+      #   all environments, no record-deployment)
+      # Main branch: pact_can_i_deploy_to_env + pact_record_deployment per
+      #   environment (dev → qa → prod)
+      #
+      # In a multi-repo setup, these functions would be baked into a shared CI
+      # image or reusable workflow, and each deploy stage (deploy:qa, deploy:prod)
+      # would call pact_can_i_deploy_to_env → deploy → pact_record_deployment
+      # independently. Here we loop all environments in one script because we
+      # have one Kind cluster.
+      #
+      # Verification failure in the pact job (build & test stage) doesn't block
+      # this step. Recovery after break-glass is a single commit.
+
+      - name: Create .env from secrets
+        if: vars.PACT_ENABLED != 'false'
+        run: |
+          echo "PACT_BROKER_BASE_URL=${{ secrets.PACT_BROKER_BASE_URL }}" >> .env
+          echo "PACT_BROKER_TOKEN=${{ secrets.PACT_BROKER_TOKEN }}" >> .env
+
+      - name: Can-i-deploy + record deployment
+        if: vars.PACT_ENABLED != 'false'
+        run: bash scripts/pact/can-i-deploy.sh
+        env:
+          CI: "true"
+
+      # --- Infrastructure tests (BATS) ---
+
+      - name: Install BATS
+        run: |
+          sudo apt-get update && sudo apt-get install -y bats jq
+
+      - name: Run infrastructure tests
+        run: npm run test:infra
+
+      # --- Integration tests (Vitest) ---
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      # --- Chaos experiments (main only) ---
+      # In a real org, chaos runs as a downstream pipeline against staging.
+      # It triggers after deploy succeeds, runs independently, and reports
+      # results via dashboard/Slack. Prod promotion doesn't gate on it —
+      # chaos validates resilience over time, not per-commit correctness.
+      # Feature branches run infra + integration tests only.
+
+      - name: Run chaos — pod kill
+        if: github.ref == 'refs/heads/main'
+        run: |
+          ./scripts/chaos/pod-kill.sh service-a
+          ./scripts/chaos/pod-kill.sh service-b
+
+      - name: Run chaos — dependency failure
+        if: github.ref == 'refs/heads/main'
+        run: ./scripts/chaos/dependency-failure.sh
+
+      - name: Run chaos — resource pressure
+        if: github.ref == 'refs/heads/main'
+        run: ./scripts/chaos/resource-pressure.sh service-a all
+
+      - name: Run chaos — latency injection
+        if: github.ref == 'refs/heads/main'
+        run: ./scripts/chaos/latency-injection.sh
+
+      - name: Chaos experiment summary
+        if: always() && github.ref == 'refs/heads/main'
+        run: npx tsx scripts/chaos/render-summary.ts >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload chaos reports
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: chaos-reports
+          path: scripts/chaos/reports/
+          if-no-files-found: ignore
+
+      # --- Teardown ---
+
+      - name: Delete Kind cluster
+        if: always()
+        run: |
+          kind delete cluster --name platform-lab
+          docker rm -f ollama 2>/dev/null || true
