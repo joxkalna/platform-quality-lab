@@ -13,7 +13,7 @@ These rules exist because they were violated during development and caused real 
 
 2. **Never record deployments from feature branches.** `record-deployment` only runs on the protected main branch, after a real deployment. A feature branch pact is a proposal, not a deployment. Recording it as deployed pollutes the Broker's `deployedOrReleased` selectors and causes provider verification failures when the branch is reverted.
 
-3. **Never modify scripts that are designed to be reusable across projects based on a single project's quirks.** `initialise-provider.sh` mirrors the pattern from a production provider initialisation repo. If it fails on PactFlow but works on a self-hosted broker, the fix belongs in PactFlow-specific documentation — not in the script itself.
+3. **Never modify scripts that are designed to be reusable across projects based on a single project's quirks.** `initialise-provider.sh` follows the standard provider initialisation pattern. If it fails on PactFlow but works on a self-hosted broker, the fix belongs in PactFlow-specific documentation — not in the script itself.
 
 4. **The pipeline owns the Pact lifecycle.** Pact state (versions, deployments, verification results) must only be created by CI. Manual Broker operations (environment registration, provider initialisation) are one-time setup steps documented in `scripts/` — everything else flows through the pipeline.
 
@@ -115,7 +115,7 @@ Adding Service C creates a new service boundary and an opportunity to exercise r
 | Deprecate an endpoint | Service B wants to remove `/info` | can-i-deploy blocks it because Service A still depends on it |
 
 **Monorepo vs reality:**
-All three services stay in one repo for Phase 6. This simplifies CI (one pipeline, one commit SHA for all services) but doesn't reflect production where each service would be its own repo with its own pipeline. The Pact patterns (consumer tests, provider verification, can-i-deploy, record-deployment) are identical in both setups — only the trigger changes. In a monorepo, verification runs in the same pipeline. In multi-repo, a webhook triggers the provider's pipeline when a consumer publishes a new pact. The monorepo `can-i-deploy` workaround (checking both services at the same commit) is already documented in `scripts/pact/can-i-deploy.sh` with the multi-repo equivalent in comments. See `docs/pact/06-repo-separation.md` for the full mapping.
+All three services stay in one repo for Phase 6. This simplifies CI (one pipeline, one commit SHA for all services) but doesn't reflect production where each service would be its own repo with its own pipeline. The Pact patterns (consumer tests, provider verification, can-i-deploy, record-deployment) are identical in both setups — only the trigger changes. In a monorepo, verification runs in the same pipeline. In multi-repo, a webhook triggers the provider's pipeline when a consumer publishes a new pact. The `can-i-deploy.sh` script uses `--to-environment` per service per environment — the same query a multi-repo pipeline would make. See `docs/pact/06-repo-separation.md` for the full mapping.
 
 ## Phase 6 Pipeline Integration Tests
 When Service C (AI) is added, it introduces a real processing pipeline: prompt construction → LLM call → response parsing → confidence scoring. This is the first service with transformation logic worth testing end-to-end, not just at the HTTP layer.
@@ -344,7 +344,7 @@ See [CHAOS.md](CHAOS.md) for full experiment log, learnings, and Phase 5 guardra
 - Never publish pacts, record deployments, or run can-i-deploy locally — only `initialise-provider.sh` and `deploy-pact-broker.sh` run locally as one-time setup. Everything else goes through the pipeline. See "Hard Rules" at the top of this file
 - `failIfNoPactsFound: false` — provider pipeline passes before any consumer publishes (avoids chicken-and-egg)
 - `enablePending: true` — new pacts don't break the provider until verified
-- Monorepo `can-i-deploy` checks both services at the same commit version (production multi-repo pattern documented in comments)
+- Monorepo `can-i-deploy` uses `--to-environment` per service per environment — same query as multi-repo
 - Future improvement: split consumer and provider into separate repos to mirror production multi-repo Pact workflow (see `06-repo-separation.md`)
 - Webhooks not needed in monorepo — add when splitting repos (webhook triggers provider verification when consumer publishes a new pact)
 - Service B exports `app` with guarded `listen()` — allows `http.createServer(app)` in verification test (matches production thin-server pattern)
