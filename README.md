@@ -90,6 +90,7 @@ install → lint ──────────┐
 - [ ] Phase 6: AI service (Service C + Pact evolution + k6 load testing)
 - [ ] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
 - [ ] Phase 8: API collections (Bruno — exploratory testing, environment management, CI smoke tests)
+- [ ] Phase 9: UI + frontend quality (React UI for classify, Pact frontend consumer, Lighthouse CI, k6 browser, Playwright E2E)
 
 ## Documentation
 
@@ -102,3 +103,4 @@ install → lint ──────────┐
 | [docs/code-quality-gates.md](docs/code-quality-gates.md) | Custom ESLint rules, shared coding standards path |
 | [docs/ci-dependencies.md](docs/ci-dependencies.md) | CI dependency audit, image strategy |
 | [docs/pact/](docs/pact/) | Contract testing — big picture, guides, CI/CD patterns, break-glass, breaking changes |
+| [docs/phase9-ui-frontend-quality.md](docs/phase9-ui-frontend-quality.md) | Phase 9 plan — React UI, frontend Pact, Lighthouse CI, k6 browser, Playwright E2E |
