@@ -114,7 +114,7 @@ jobs:
           restore-keys: |
             deps-
 
-      - uses: yokawasa/action-setup-kube-tools@v0.13.4
+      - uses: yokawasa/action-setup-kube-tools@v0.13.5
         with:
           kubeconform: ${{ env.KUBECONFORM_VERSION }}
 
