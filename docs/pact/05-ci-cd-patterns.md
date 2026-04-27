@@ -40,42 +40,84 @@ A standalone `can-i-deploy` job at the end of the pipeline checks all environmen
 
 The embedded pattern ensures the Broker always reflects reality.
 
-### Pseudocode
+### GitHub Actions example
 
 ```yaml
-# Each deploy stage has the same structure
-deploy:qa:
-  script:
-    - pact_can_i_deploy_to_env    # gate: is it safe to deploy to QA?
-    - deploy                       # actual deployment
-    - pact_record_deployment       # tell the Broker: this version is now in QA
-  variables:
-    ENVIRONMENT: qa
-    PACTICIPANTS: "service-a;service-b"
+# Each deploy job has the same structure, scoped to one environment
+deploy-qa:
+  needs: [build-and-test]
+  runs-on: ubuntu-latest
+  steps:
+    - name: Can-i-deploy to QA
+      run: |
+        pact-broker can-i-deploy \
+          --pacticipant service-a --version "$COMMIT" \
+          --to-environment qa \
+          --broker-base-url "$BROKER_URL" --broker-token "$TOKEN" \
+          --retry-while-unknown 10 --retry-interval 20
 
-deploy:prod:
-  script:
-    - pact_can_i_deploy_to_env    # gate: is it safe to deploy to prod?
-    - deploy                       # actual deployment
-    - pact_record_deployment       # tell the Broker: this version is now in prod
-  variables:
-    ENVIRONMENT: prod
-    PACTICIPANTS: "service-a;service-b"
+    - name: Deploy to QA
+      run: ./scripts/deploy.sh qa
+
+    - name: Record deployment to QA
+      run: |
+        pact-broker record-deployment \
+          --pacticipant service-a --version "$COMMIT" \
+          --environment qa \
+          --broker-base-url "$BROKER_URL" --broker-token "$TOKEN"
+
+deploy-prod:
+  needs: [deploy-qa]
+  runs-on: ubuntu-latest
+  steps:
+    - name: Can-i-deploy to prod
+      run: |
+        pact-broker can-i-deploy \
+          --pacticipant service-a --version "$COMMIT" \
+          --to-environment prod \
+          --broker-base-url "$BROKER_URL" --broker-token "$TOKEN" \
+          --retry-while-unknown 10 --retry-interval 20
+
+    - name: Deploy to prod
+      run: ./scripts/deploy.sh prod
+
+    - name: Record deployment to prod
+      run: |
+        pact-broker record-deployment \
+          --pacticipant service-a --version "$COMMIT" \
+          --environment prod \
+          --broker-base-url "$BROKER_URL" --broker-token "$TOKEN"
 ```
 
-## Monorepo Pipeline Structure Gap
+### Our project simplification
+
+We have one Kind cluster — there's no separate QA or prod environment to deploy to. So our `can-i-deploy.sh` runs all three environment checks and recordings in a single step:
+
+```bash
+for ENV in dev qa prod; do
+  can_i_deploy "$ENV"
+  record_deployment "$ENV"
+done
+```
+
+This exercises the Broker's multi-environment lifecycle (dev → qa → prod) without needing separate infrastructure. In a real project, each environment would be a separate deploy job with its own gate, as shown above.
+
+## Monorepo Pipeline Structure
 
 The production pipeline pattern above separates verification (build/test stage) from deployment recording (deploy stage). This means verification failure doesn't block `record-deployment` — the deploy stage runs independently if `can-i-deploy` passes.
 
-Our monorepo pipeline doesn't follow this pattern yet. Everything runs in a single pact job:
+Our monorepo pipeline now follows this pattern:
 
 ```
-consumer test → publish → verify → can-i-deploy → record-deployment
+pact job (build & test):    consumer test → publish → verify
+deploy-and-test job:        build → deploy → can-i-deploy → record-deployment → tests → chaos
 ```
 
-This means verification failing blocks `record-deployment`, which creates problems during recovery from break-glass hotfixes. See [06-repo-separation.md](06-repo-separation.md#the-real-fix-separate-stages) and [09-coordinated-breaking-changes.md](09-coordinated-breaking-changes.md#the-real-problem-pipeline-structure) for the full explanation.
+Verification failure in the pact job doesn't block `can-i-deploy` or `record-deployment` in the deploy job. Recovery after a break-glass hotfix is a single commit — no `continue-on-error` needed.
 
-> **TODO:** Restructure the CI pipeline to move `can-i-deploy` and `record-deployment` into the deploy stage (`deploy-and-test` job), matching the production pattern.
+If your pipeline can't separate stages (e.g. verification and `record-deployment` must run in the same job), the alternative is a two-commit recovery using `continue-on-error: true` on provider verification. See [06-repo-separation.md](06-repo-separation.md#previous-approach-two-commit-recovery-with-continue-on-error) for details.
+
+See [06-repo-separation.md](06-repo-separation.md#the-real-fix-separate-stages) and [09-coordinated-breaking-changes.md](09-coordinated-breaking-changes.md#the-real-problem-pipeline-structure) for the full explanation of why this matters.
 
 ## Branch vs Main — What Runs Where
 
