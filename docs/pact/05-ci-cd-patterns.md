@@ -95,12 +95,12 @@ We have one Kind cluster — there's no separate QA or prod environment to deplo
 
 ```bash
 for ENV in dev qa prod; do
-  can_i_deploy "$ENV"
-  record_deployment "$ENV"
+  pact_can_i_deploy_to_env "$ENV" "$PACTICIPANTS"
+  pact_record_deployment "$ENV" "$PACTICIPANTS"
 done
 ```
 
-This exercises the Broker's multi-environment lifecycle (dev → qa → prod) without needing separate infrastructure. In a real project, each environment would be a separate deploy job with its own gate, as shown above.
+Each call uses `--to-environment` to check each service against what's actually deployed in that environment — the same query a multi-repo pipeline would make. This exercises the Broker's multi-environment lifecycle (dev → qa → prod) without needing separate infrastructure. In a real project, each environment would be a separate deploy job with its own gate, as shown above.
 
 ## Monorepo Pipeline Structure
 
@@ -125,16 +125,18 @@ This is the rule that prevents Broker state pollution. Getting this wrong is how
 
 ### Feature branches (dev)
 
-Feature branches run the **test and verify** part of the pipeline. They do NOT deploy to real environments and do NOT record deployments.
+Feature branches run the **test, verify, and early feedback** part of the pipeline. They do NOT deploy to real environments and do NOT record deployments.
 
 ```
-pact_test → pact_publish → pact_verify
+pact_test → pact_publish → pact_verify → pact_can_deploy_to_upper_env
 ```
 
 - Consumer tests run and pacts are published with the branch name
 - Provider verification runs and results are published
-- `can-i-deploy` does NOT run (there's nothing to deploy)
+- `pact_can_deploy_to_upper_env` runs as early feedback — checks each service against all environments using `--to-environment` to answer: "if this branch merged and deployed, would it be safe?"
 - `record-deployment` does NOT run (nothing was deployed)
+
+The early feedback check is informational — it tells developers whether their changes are compatible with what's currently deployed, before they merge. It uses the same `--to-environment` query as the main branch deploy gate.
 
 The pact is published to the Broker with the branch name so the provider can verify it. But it's not recorded as deployed to any environment. This is critical — a feature branch pact is a proposal, not a deployment.
 
@@ -225,17 +227,19 @@ When a consumer publishes a new pact, the Broker webhook triggers the provider's
 
 In a monorepo with multiple stacks, map each stack to its own pacticipant names in the deploy jobs. This ensures each stack only records deployments for its own services.
 
-**Monorepo `can-i-deploy` workaround:** In a monorepo, all services share a commit SHA. The standard `can-i-deploy` (check one service against what's deployed) doesn't work because the "deployed" version is from a previous pipeline run with a different SHA. Instead, check all services at the same commit:
+**Monorepo `can-i-deploy`:** In a monorepo, all services share a commit SHA. Each service is checked independently against each environment using `--to-environment` — the same query a multi-repo pipeline would make:
 
 ```bash
-pact-broker can-i-deploy \
-  --pacticipant service-a --version "$COMMIT" \
-  --pacticipant service-b --version "$COMMIT" \
-  --pacticipant service-c --version "$COMMIT" \
-  --broker-base-url "$BROKER_URL" ...
+for service in service-a service-b service-c; do
+  pact-broker can-i-deploy \
+    --pacticipant "$service" \
+    --version "$COMMIT" \
+    --to-environment prod \
+    --broker-base-url "$BROKER_URL" ...
+done
 ```
 
-This asks: "are all these services compatible with each other at this commit?" — which is the right question for a monorepo where everything deploys together.
+This asks: "is this version of service-a compatible with what's deployed in prod?" — repeated for each service. The Broker checks each service against the other services' deployed versions.
 
 In multi-repo, each service checks independently against what's deployed:
 
@@ -245,6 +249,8 @@ pact-broker can-i-deploy \
   --to-environment prod \
   --broker-base-url "$BROKER_URL" ...
 ```
+
+The query is identical — only the trigger differs (same pipeline vs separate pipelines).
 
 ## Required Variables
 
@@ -262,11 +268,14 @@ Broker credentials (`PACT_BROKER_USERNAME`, `PACT_BROKER_PASSWORD`) should come 
 
 The reusable pipeline should provide these shell functions:
 
-- **Environment mapping** — translates CI account names to generic Broker environment names (e.g. `my-qa-account` → `qa`), keeping things portable
-- **Create version if not exists** — ensures the provider version exists on the Broker even when there are no pacts to verify yet
-- **Record deployment** — runs only on the protected main branch; maps environments and supports multiple pacticipants; runs **inside** each deploy stage, not as a standalone job
-- **Can-i-deploy** — checks each pacticipant against each environment with `--retry-while-unknown` to wait for pending verifications; runs **inside** each deploy stage as a gate before the actual deploy
-- **Can-i-deploy to env** — wrapper that adds the protected branch + main branch guard, so feature branches skip the check entirely
+| Function | What it does | When it runs |
+|---|---|---|
+| `pact_map_environment` | Translates CI account names to Broker environment names (e.g. `my-qa-account` → `qa`) | Called by other functions |
+| `pact_can_i_deploy` | Core: checks each pacticipant against a target environment using `--to-environment` with `--retry-while-unknown` | Called by the two wrappers below |
+| `pact_can_i_deploy_to_env` | Wrapper: adds main-only guard, then calls `pact_can_i_deploy`. Embedded inside each deploy stage as a gate before the actual deploy | Main branch only |
+| `pact_can_deploy_to_upper_env` | Wrapper: no main guard, calls `pact_can_i_deploy` against all environments. Gives feature branch developers early feedback: "would this be safe to deploy?" | Feature branches only |
+| `pact_record_deployment` | Records deployment to the Broker. Main-only guard — skips silently on feature branches. Embedded inside each deploy stage after the actual deploy | Main branch only |
+| `pact_create_version_if_does_not_exist` | Ensures the provider version exists on the Broker even when there are no pacts to verify yet | Build stage (after verification) |
 
 ## Adoption Checklist
 
