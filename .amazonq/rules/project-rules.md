@@ -50,6 +50,7 @@ These rules exist because they were violated during development and caused real 
   - ✅ Code quality gates — custom ESLint rules for fetch timeouts and error handling
 - **Phase 6** AI service — add a new service wrapping an LLM API, deploy to Kind, wire into service mesh, load test with k6
 - **Phase 7** LLMOps — non-deterministic assertion patterns, golden set benchmarks, accuracy thresholds as CI gates, consistency tests, evaluation pipelines
+- **Phase 8** API collections (Bruno) — version-controlled API collections for exploratory testing, environment management, CI smoke tests via `bru run`
 
 ## Phase 6 Load Testing with k6
 k6 is deferred to Phase 6 because Services A and B are HTTP pass-throughs with minimal resource usage (11-15Mi memory, 1-13m CPU). Load testing them confirms they handle concurrent requests but there's little to discover.

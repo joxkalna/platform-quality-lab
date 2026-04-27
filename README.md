@@ -76,7 +76,7 @@ install → lint ──────────┐
         → pact ───────────┴→ deploy-and-test
                                ├── BATS infra tests
                                ├── Vitest integration tests
-                               ├── Chaos experiments
+                               ├── Chaos experiments (main only)
                                └── Teardown (always)
 ```
 
@@ -89,6 +89,7 @@ install → lint ──────────┐
 - [x] Phase 5: CI guardrails (Pact contracts, manifest validation, chaos gates, ESLint rules)
 - [ ] Phase 6: AI service (Service C + Pact evolution + k6 load testing)
 - [ ] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
+- [ ] Phase 8: API collections (Bruno — exploratory testing, environment management, CI smoke tests)
 
 ## Documentation
 
