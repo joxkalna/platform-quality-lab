@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Checks if services are safe to deploy, then records deployment.
-# Follows the production pattern:
-#   can-i-deploy(env) → deploy(env) → record-deployment(env)
-# repeated per environment (dev, qa, prod) on main only.
+# Pact deployment gate — checks compatibility and records deployments.
 #
-# Feature branches: compatibility check only (no record-deployment).
-# Main branch: per-environment can-i-deploy + record-deployment.
+# 4 functions following the standard Pact CI/CD pattern:
+#   pact_can_i_deploy            — core: checks a pacticipant against an environment
+#   pact_can_i_deploy_to_env     — wrapper: adds main-only guard, used in deploy stages
+#   pact_can_deploy_to_upper_env — feature branches: early feedback, no main guard
+#   pact_record_deployment       — records deployment to Broker, main-only guard
+#
+# Flow:
+#   Feature branches: pact_can_deploy_to_upper_env (early feedback against all envs)
+#   Main branch:      pact_can_i_deploy_to_env → deploy → pact_record_deployment (per env)
+#
+# In a multi-repo setup, each deploy stage sets ENVIRONMENT and PACTICIPANTS
+# for that specific service and environment. In our monorepo, we loop all
+# services and all environments in one script — but the functions are identical.
 #
 # Usage: ./scripts/pact/can-i-deploy.sh
 
@@ -20,70 +28,143 @@ TOKEN="$PACT_BROKER_TOKEN"
 COMMIT=$(git rev-parse --short=8 HEAD)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-SERVICES=(service-a service-b service-c)
+# Semicolon-separated list of pacticipants. In a multi-repo setup, this is
+# set per deploy job (e.g. "my-consumer;my-provider" for a stack that has both).
+PACTICIPANTS="service-a;service-b;service-c"
 
-# --- Multi-repo pattern (production) ---
-# Each service has its own pipeline and commit SHA.
-# can-i-deploy checks one service against what's deployed to a specific env:
-#
-#   pact-broker can-i-deploy \
-#     --pacticipant service-a \
-#     --version "$COMMIT" \
-#     --to-environment "$ENV" \
-#     --broker-base-url "$BROKER_URL" \
-#     --broker-token "$TOKEN" \
-#     --retry-while-unknown 10 \
-#     --retry-interval 20
+# In a multi-repo setup, ENVIRONMENT is set per deploy job.
+# We loop all environments below since we have one Kind cluster.
+ENVIRONMENTS=(dev qa prod)
 
-# --- Monorepo workaround ---
-# All services share a commit, so we check them against each other
-# at the same version instead of against what's deployed.
-# This avoids the version mismatch when the deployed version (from a
-# previous pipeline run) differs from the current commit.
-can_i_deploy() {
+# Maps CI environment names to Broker environment names.
+# Useful when CI uses account-specific names (e.g. "aws-qa-account")
+# but the Broker uses generic names (e.g. "qa").
+# Our environments are already generic, so this is a passthrough.
+pact_map_environment() {
   local env="$1"
-  echo "→ Checking compatibility for $env..."
-  npx pact-broker can-i-deploy \
-    --pacticipant service-a \
-    --version "$COMMIT" \
-    --pacticipant service-b \
-    --version "$COMMIT" \
-    --pacticipant service-c \
-    --version "$COMMIT" \
-    --broker-base-url "$BROKER_URL" \
-    --broker-token "$TOKEN" \
-    --retry-while-unknown 10 \
-    --retry-interval 20
-  echo "✓ Safe to deploy to $env"
+  echo "$env"
 }
 
-record_deployment() {
-  local env="$1"
-  for service in "${SERVICES[@]}"; do
-    echo "→ Recording $service deployment to $env..."
-    npx pact-broker record-deployment \
-      --pacticipant "$service" \
+# Core function. Checks each pacticipant against a target environment using
+# --to-environment. Used by both feature branches (early feedback) and main
+# (deploy gate). Skips silently if pacticipants or environment are missing.
+pact_can_i_deploy() {
+  local environment="$1"
+  local pacticipants="$2"
+
+  if [[ -z "$pacticipants" ]]; then
+    echo "→ Skipping can-i-deploy (no pacticipants defined)"
+    return 0
+  fi
+
+  if [[ -z "$environment" ]]; then
+    echo "→ Skipping can-i-deploy (no environment defined)"
+    return 0
+  fi
+
+  local broker_env
+  broker_env=$(pact_map_environment "$environment")
+
+  local IFS=";"
+  for pacticipant in $pacticipants; do
+    echo "→ Checking if $pacticipant can deploy to $broker_env..."
+    npx pact-broker can-i-deploy \
+      --pacticipant "$pacticipant" \
       --version "$COMMIT" \
-      --environment "$env" \
+      --to-environment "$broker_env" \
       --broker-base-url "$BROKER_URL" \
-      --broker-token "$TOKEN"
-    echo "✓ $service recorded in $env"
+      --broker-token "$TOKEN" \
+      --retry-while-unknown 10 \
+      --retry-interval 20
   done
 }
 
-echo "=== Can-I-Deploy ==="
+# Wrapper around pact_can_i_deploy with main-only guard.
+# Called inside each deploy stage on main. Skips silently on feature branches.
+pact_can_i_deploy_to_env() {
+  local environment="$1"
+  local pacticipants="$2"
+
+  if [[ "$BRANCH" != "main" ]]; then
+    echo "→ Skipping can-i-deploy to $environment (branch: $BRANCH, not main)"
+    return 0
+  fi
+
+  pact_can_i_deploy "$environment" "$pacticipants"
+  echo "✓ Safe to deploy to $environment"
+}
+
+# Feature branch early feedback. Checks against target environments WITHOUT
+# the main-only guard. Gives developers feedback before merge: "would this
+# version be safe to deploy to QA/prod?"
+#
+# Runs in the "post-deploy review" stage on feature branches only.
+pact_can_deploy_to_upper_env() {
+  local pacticipants="$1"
+  shift
+  local environments=("$@")
+
+  echo "--- Early feedback: checking compatibility against deployed environments ---"
+  for env in "${environments[@]}"; do
+    pact_can_i_deploy "$env" "$pacticipants"
+  done
+  echo "✓ Compatible with all environments"
+}
+
+# Records deployment to the Broker. Main-only guard — feature branches skip.
+# Guards: main branch + pacticipants defined + environment defined.
+pact_record_deployment() {
+  local environment="$1"
+  local pacticipants="$2"
+
+  if [[ "$BRANCH" != "main" ]]; then
+    echo "→ Skipping record-deployment (branch: $BRANCH, not main)"
+    return 0
+  fi
+
+  if [[ -z "$pacticipants" ]]; then
+    echo "→ Skipping record-deployment (no pacticipants defined)"
+    return 0
+  fi
+
+  if [[ -z "$environment" ]]; then
+    echo "→ Skipping record-deployment (no environment defined)"
+    return 0
+  fi
+
+  local broker_env
+  broker_env=$(pact_map_environment "$environment")
+
+  local IFS=";"
+  for pacticipant in $pacticipants; do
+    echo "→ Recording $pacticipant deployment to $broker_env..."
+    npx pact-broker record-deployment \
+      --pacticipant "$pacticipant" \
+      --version "$COMMIT" \
+      --environment "$broker_env" \
+      --broker-base-url "$BROKER_URL" \
+      --broker-token "$TOKEN"
+    echo "✓ $pacticipant recorded in $broker_env"
+  done
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+
+echo "=== Pact Deploy Gate ==="
 echo "  Version: $COMMIT"
 echo "  Branch:  $BRANCH"
 echo ""
 
-# Feature branches: compatibility check only, no record-deployment.
+# Feature branches: early feedback only, no record-deployment.
 # A feature branch pact is a proposal, not a deployment.
 # Recording deployments from branches pollutes the Broker —
 # deployedOrReleased selectors would pull branch pacts during
 # provider verification, causing failures when the branch is
 # reverted or merged without those changes.
 if [[ "$BRANCH" != "main" ]]; then
-  can_i_deploy "dev (branch check)"
+  pact_can_deploy_to_upper_env "$PACTICIPANTS" "${ENVIRONMENTS[@]}"
   echo ""
   echo "→ Skipping record-deployment (branch: $BRANCH, not main)"
   echo "  Pacts are published and verified, but not recorded as deployed."
@@ -91,20 +172,21 @@ if [[ "$BRANCH" != "main" ]]; then
   exit 0
 fi
 
-# Main branch: per-environment can-i-deploy + record-deployment.
-# Each environment gets its own gate and its own deployment record,
-# mirroring the production pattern where each deploy stage runs:
-#   can-i-deploy(env) → deploy(env) → record-deployment(env)
+# Main branch: per-environment can-i-deploy → deploy → record-deployment.
+# Each environment gets its own gate and its own deployment record.
+# Uses --to-environment so the Broker checks each service against
+# what's actually deployed in that environment.
 #
-# In our Kind cluster there's one actual deploy, but we record
-# against all three environments so the Broker tracks the full
-# lifecycle (dev → qa → prod).
+# In a multi-repo setup, each environment is a separate deploy job with
+# its own ENVIRONMENT and PACTICIPANTS variables. In our Kind cluster
+# there's one actual deploy, but we run the full per-environment flow
+# so the Broker tracks the lifecycle (dev → qa → prod).
 
-for ENV in dev qa prod; do
+for ENV in "${ENVIRONMENTS[@]}"; do
   echo "--- ${ENV^^} ---"
-  can_i_deploy "$ENV"
+  pact_can_i_deploy_to_env "$ENV" "$PACTICIPANTS"
   echo "→ (Kind deploy happens once — recording $ENV)"
-  record_deployment "$ENV"
+  pact_record_deployment "$ENV" "$PACTICIPANTS"
   echo ""
 done
 

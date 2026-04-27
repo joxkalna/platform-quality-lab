@@ -493,13 +493,40 @@ In this learning project, several things are simpler because everything is in on
 | Webhook triggers cross-repo pipeline | Not needed — both services share a pipeline |
 | Shared library published to private registry | Local helper module imported directly |
 | `PACTICIPANT_NAME` set by CI per-service | Can be hardcoded in test config |
-| `can-i-deploy` before each environment | Single `local` environment |
-| `record-deployment` after each deploy | Single deploy script |
+| `can-i-deploy` before each environment | Uses `--to-environment` per service per env (same query as multi-repo) |
+| `record-deployment` after each deploy | Single deploy script loops all environments |
 | Separate pact test configs per service | One shared pact config |
 | Broker credentials from secrets store | `.env` file with local passwords |
 | Initialisation via separate repo + manual trigger | Local script run once |
 
 These simplifications are fine for learning. The patterns, naming conventions, and workflow are identical — only the plumbing differs.
+
+## Extraction Plan — What Becomes What
+
+When this project is split into a real multi-repo setup, each piece maps to a dedicated repo. This table shows exactly where everything in this monorepo ends up:
+
+| This project | Becomes | Repo type | What it contains |
+|---|---|---|---|
+| `k8s/pact-broker.yaml` + `k8s/postgres.yaml` + `scripts/create-secret.sh` | **Broker infrastructure repo** | IaC (Terraform/CDK) | Provisions the Broker container, managed Postgres, load balancer, DNS, credentials in secrets store |
+| `scripts/pact/initialise-provider.sh` | **Provider initialisation repo** | Shell scripts + CI | Manual-trigger pipeline: validate inputs → create provider → record deployments → create webhook. One repo shared by all teams |
+| `tests/pact/provider/` verifier config (Broker URL, selectors, pending pacts) | **Shared provider library** | npm package | Wraps `@pact-foundation/pact` Verifier with org defaults. Published to private registry. All providers install it |
+| `scripts/pact/can-i-deploy.sh` (the 4 helper functions) | **Shared CI pipeline templates** | Reusable CI jobs | `pact_can_i_deploy`, `pact_can_i_deploy_to_env`, `pact_can_deploy_to_upper_env`, `pact_record_deployment`, `pact_map_environment`. Baked into a shared CI image or reusable workflow |
+| `tests/pact/consumer/` | **Per consumer service repo** | Application repo | Consumer pact tests, `test:pact` script, CI jobs: test → publish |
+| `tests/pact/provider/` (state handlers, stubs) | **Per provider service repo** | Application repo | Provider verification test, state handlers, stubs, `test:pact:verify` script |
+| `scripts/pact/publish.sh` | **Shared CI pipeline templates** | Reusable CI job | `pact_publish` job with branch detection and version tagging |
+| `docs/pact/` | **Shared documentation** | Wiki / docs site | Guides for onboarding new consumers and providers |
+
+### The 5 repos (same as the diagram at the top of this doc)
+
+```
+1. infra-pact-broker          ← Terraform/IaC, owned by platform team
+2. initialise-pact-provider   ← Shell scripts + CI, shared tool
+3. pact-provider (library)    ← npm package, wraps @pact-foundation/pact
+4. shared-pipeline (templates)← Reusable CI jobs with helper functions
+5. service repos (N)          ← Each service owns its consumer/provider tests
+```
+
+Webhooks connect repos 5 → 5: when a consumer publishes a new pact, the Broker webhook triggers the provider's pipeline to verify it. Not needed in a monorepo because both sides run in the same pipeline.
 
 ## Scaling Checklist — Moving to Multi-Repo
 
@@ -555,9 +582,14 @@ When you move to a real org, use this checklist to set up each piece:
 - [ ] Provider initialised via the initialisation repo before first consumer publishes
 
 ### Shared CI Pipeline Templates
-- [ ] Reusable jobs: `pact_test`, `pact_publish`, `pact_verify`, `can_i_deploy`, `record_deployment`
+- [ ] Reusable jobs: `pact_test`, `pact_publish`, `pact_verify`, `pact_can_i_deploy`, `pact_can_i_deploy_to_env`, `pact_can_deploy_to_upper_env`, `pact_record_deployment`
+- [ ] `pact_map_environment` function — maps CI account names to Broker environment names
+- [ ] `pact_can_i_deploy` — core: checks each pacticipant against a target environment using `--to-environment`
+- [ ] `pact_can_i_deploy_to_env` — wrapper: adds main-only guard, called inside deploy stages
+- [ ] `pact_can_deploy_to_upper_env` — feature branch early feedback, no main guard
+- [ ] `pact_record_deployment` — main-only guard, embedded inside deploy stages after deploy
+- [ ] `pact_create_version_if_does_not_exist` — ensures provider version exists on Broker
 - [ ] `PACT_TESTING` flag to enable/disable all pact jobs
-- [ ] Environment mapping function (CI account names → broker environment names)
 - [ ] `--retry-while-unknown` in `can-i-deploy` for async verification
 - [ ] Block non-pact jobs on webhook-triggered pipelines
 - [ ] Broker credentials from CI secrets store, never hardcoded
