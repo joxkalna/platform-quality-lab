@@ -54,36 +54,46 @@ These rules exist because they were violated during development and caused real 
 - **Phase 9** UI + frontend quality — React UI for Service C's classify endpoint, frontend Pact consumer, Lighthouse CI gates, k6 browser testing, Playwright E2E
 
 ## Phase 6 Load Testing with k6
-Full plan, architecture, MR breakdown, and decisions documented in `docs/k6-load-testing.md`.
+Full plan, architecture, MR breakdown, and decisions documented in `docs/performance/k6-load-testing.md`.
 
 k6 is deferred to Phase 6 because Services A and B are HTTP pass-throughs with minimal resource usage. Service C (AI) has real processing that makes load testing valuable: performance baselines, breaking point discovery, regression detection, chaos + load combined.
 
 **Scope:** k6 load tests Services A and B — HTTP throughput, latency under concurrency, infrastructure isolation (is the bottleneck in the service, the DNS, or the networking?). Service C is excluded from load profiles — LLM on constrained Kind resources means chaos experiments already cover its failure behaviour. Service C load testing deferred to when there's a real LLM backend worth profiling.
 
 **MR breakdown:**
-- MR 1 — Framework scaffold + smoke test (learn k6, 3-layer architecture, webpack build, CI smoke)
+- MR 1 ✅ — Framework scaffold + smoke test (native k6 TypeScript, 3-layer architecture, CI smoke)
 - MR 2 — Load + stress profiles + regression analysis (10% threshold, GitHub artifacts, baselines)
 - MR 3 — Slack notifications + monitoring (personal Slack workspace, webhook alerts on regression)
 
 **Key decisions:**
-- Webpack + babel over native k6 TypeScript (native is experimental, webpack is proven)
-- 3-layer architecture: scenarios → flows → requests (see `docs/k6-load-testing.md` for rationale)
+- Native k6 TypeScript over webpack + babel — k6 v1.x runs `.ts` files directly, no build step needed. Requires `.ts` extensions on all local imports and `allowImportingTsExtensions: true` in tsconfig
+- Functional programming style throughout — arrow functions, no classes. Matches k6's own API (`check()`, `group()`, `http.get()`). Logger, request params, handleSummary are all plain exported functions
+- 3-layer architecture: requests → flows → scenarios. Requests are atomic HTTP calls with `check()` assertions and transaction tags. Flows compose requests into reusable groups with `group()` for aggregated metrics. Scenarios compose flows into user journeys
+- Three scenario types: `healthCheck` (isolated baseline), `dataFlow` (isolated A → B hop), `fullJourney` (chained realistic journey). Isolated scenarios for baselines, chained for realistic traffic patterns
 - External JSON load profiles — swap profiles without changing test code
-- `tests/load/` has its own `package.json` — k6 dependencies don't belong in root
+- `tests/load/` has its own `package.json` — only `@types/k6` for IDE autocomplete
 - Smoke test on every push, load test on every push (feature branches compare against main's artifact), stress test on-demand
 - Branch-vs-main comparison — adapted from production compute test pattern (run same profile, compare artifacts) instead of relying solely on committed baselines
 - 10% regression threshold (industry standard for performance gates)
-- JUnit output in handleSummary — low effort, high visibility in CI
 - Personal Slack workspace with Incoming Webhooks for CI alerts
 - GitHub Actions artifacts + committed baselines for tracking (cloud dashboards deferred to post Phase 7)
 - Service C excluded from load profiles — chaos experiments cover LLM failure behaviour, load testing deferred to real backend
 - k6 runs on CI host with port-forwarding to Kind cluster (same approach as integration tests)
-- Reusable utilities: logger, request params helper, transaction tagging, regression analysis script (see `docs/k6-load-testing.md` → "Reusable k6 Patterns")
+- Reusable utilities: logger, request params helper, transaction tagging, handleSummary (JSON + text output)
+
+**MR1 smoke baseline (CI — Kind cluster):**
+- `checks`: 100%
+- `http_req_failed`: 0%
+- `http_req_duration` p95: ~15ms
+- `http_req_waiting` p95: ~14.7ms
+- `group_duration` p95: ~26ms
+
+These are smoke baselines from the first CI run. Load baselines (MR2) will be established under sustained traffic.
 
 **Performance documentation:**
-- `docs/perf-min.md` — when performance testing is required, decision checklist
-- `docs/perf-baseline.md` — per-endpoint thresholds, regression criteria, baseline load definition
-- `docs/k6-load-testing.md` — full implementation plan, architecture, MR breakdown, production patterns
+- `docs/performance/perf-min.md` — when performance testing is required, decision checklist
+- `docs/performance/perf-baseline.md` — per-endpoint thresholds, regression criteria, baseline load definition
+- `docs/performance/k6-load-testing.md` — full implementation plan, architecture, MR breakdown, production patterns
 
 ## Phase 6 Pact Evolution
 Adding Service C creates a new service boundary and an opportunity to exercise real-world Pact scenarios that don't come up when you only have two services.
