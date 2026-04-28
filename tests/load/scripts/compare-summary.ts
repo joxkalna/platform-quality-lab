@@ -1,3 +1,16 @@
+/**
+ * Regression analysis — compares current k6 summary against committed baseline.
+ *
+ * Metrics and thresholds based on industry-standard performance testing practices:
+ * - https://grafana.com/docs/k6/latest/testing-guides/automated-performance-testing/
+ * - https://grafana.com/blog/2024/01/30/how-to-set-up-performance-thresholds-in-k6/
+ * - https://sre.google/sre-book/monitoring-distributed-systems/ (The Four Golden Signals)
+ *
+ * 10% regression threshold is a common starting point for CI gates:
+ * - Tight enough to catch meaningful regressions
+ * - Loose enough to tolerate infrastructure variance (especially in containerised environments)
+ */
+
 import * as fs from "fs";
 import * as path from "path";
 
@@ -23,9 +36,12 @@ interface Summary {
 
 interface Baseline {
   baseline: {
+    http_req_duration_p90_ms: number;
     http_req_duration_p95_ms: number;
     http_req_waiting_p95_ms: number;
     group_duration_p95_ms: number;
+    iteration_duration_p95_ms: number;
+    http_reqs_rate: number;
   };
 }
 
@@ -59,16 +75,16 @@ const formatDiff = (diff: number) => `${diff >= 0 ? "+" : ""}${diff.toFixed(2)}%
 
 const results: ComparisonResult[] = [];
 
-// Latency: p95 from summary vs baseline
-const currentP95 = summary.metrics.http_req_duration.values["p(90)"];
-const baselineP95 = baseline.baseline.http_req_duration_p95_ms;
-const p95Diff = ((currentP95 - baselineP95) / baselineP95) * 100;
+// Latency: p90 from summary vs baseline
+const currentP90 = summary.metrics.http_req_duration.values["p(90)"];
+const baselineP90 = baseline.baseline.http_req_duration_p90_ms;
+const p90Diff = ((currentP90 - baselineP90) / baselineP90) * 100;
 results.push({
   metric: "http_req_duration p90",
-  baselineValue: `${baselineP95.toFixed(2)} ms`,
-  currentValue: `${currentP95.toFixed(2)} ms`,
-  diffPercent: p95Diff,
-  exceeded: p95Diff > THRESHOLD,
+  baselineValue: `${baselineP90.toFixed(2)} ms`,
+  currentValue: `${currentP90.toFixed(2)} ms`,
+  diffPercent: p90Diff,
+  exceeded: p90Diff > THRESHOLD,
 });
 
 // Error rate
@@ -83,14 +99,16 @@ results.push({
   exceeded: currentErrorRate > 0,
 });
 
-// Throughput: rate from summary vs baseline (no baseline rate stored yet — report only)
+// Throughput: rate drop is bad (negative change)
 const currentRate = summary.metrics.http_reqs.values.rate;
+const baselineRate = baseline.baseline.http_reqs_rate;
+const rateDiff = ((currentRate - baselineRate) / baselineRate) * 100;
 results.push({
   metric: "http_reqs rate",
-  baselineValue: "N/A (not in baseline yet)",
+  baselineValue: `${baselineRate.toFixed(2)} req/s`,
   currentValue: `${currentRate.toFixed(2)} req/s`,
-  diffPercent: 0,
-  exceeded: false,
+  diffPercent: rateDiff,
+  exceeded: rateDiff < -THRESHOLD,
 });
 
 for (const r of results) {

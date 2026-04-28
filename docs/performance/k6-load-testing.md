@@ -60,6 +60,7 @@ tests/load/
 │   ├── config/                    # Load profiles (JSON)
 │   │   ├── local-test.json        # Single iteration, debug
 │   │   ├── smoke-test.json        # Low rate, validate scripts work
+│   │   ├── regression-test.json   # Branch feedback (~3.5 min)
 │   │   ├── load-test.json         # Sustained load at expected levels
 │   │   └── stress-test.json       # Push beyond limits, find breaking points
 │   ├── requests/                  # Single HTTP calls with check assertions
@@ -441,7 +442,7 @@ Not implementing cloud dashboards now — it's infrastructure overhead that does
 - GitHub Actions step summary with markdown comparison table (✅/⚠️ per metric)
 - Committed baseline file (`tests/load/baseline.json`) — initial baseline from first run, updated manually (ratchet pattern)
 
-**Branch-vs-main comparison (adapted compute test pattern):**
+**Branch-vs-main comparison (adapted regression test pattern):**
 
 A common approach is to run the same profile against branch and main deployments in parallel. We can't do that in a single Kind cluster, so the adaptation is:
 
@@ -523,15 +524,67 @@ install → lint ──────────┐
         → pact ───────────┴→ deploy-and-test
                                ├── BATS infra tests
                                ├── Vitest integration tests
-                               ├── k6 smoke test (every push)
-                               ├── k6 load test (main only)
-                               ├── Regression analysis (main only)
-                               ├── Slack alert (main only, on regression)
-                               ├── Chaos experiments (main only)
+                               ├── k6 smoke test (every push, gates)
+                               ├── k6 regression test (branches, ~3.5 min, non-blocking)
+                               ├── k6 load test (main, 5 min, non-blocking)
+                               ├── k6 regression analysis (every push, non-blocking)
+                               ├── Slack alert (on regression, MR3)
+                               ├── Chaos experiments (main only, gates)
                                └── Teardown (always)
 ```
 
-k6 runs after integration tests (validates endpoints are reachable) and before chaos (validates performance baseline before we break things). On main, the load test + regression analysis runs between smoke and chaos.
+### Test Types and When They Run
+
+| Profile | File | Duration | When | Blocks pipeline? | Purpose |
+|---------|------|----------|------|-----------------|----------|
+| Smoke | `smoke-test.json` | 30s | Every push | **Yes** | Correctness — are endpoints alive and responding correctly? |
+| Regression | `regression-test.json` | ~3.5 min | Feature branches | No | Early feedback — detect performance regressions before merge |
+| Load | `load-test.json` | 5 min | Main only | No | Historical data — full baseline comparison, trend over time |
+| Stress | `stress-test.json` | 6 min | Manual only | No | Exploratory — find breaking points, not a CI gate |
+| Local | `local-test.json` | 1 iteration | Local dev | N/A | Development — verify scripts work |
+
+### Why This Split
+
+- **Smoke gates the pipeline** because a broken endpoint should block deployment
+- **Regression/load don't gate** because CI environments have variance — a 12% latency spike might be infrastructure noise, not a real regression. Non-blocking means you see the signal without false-positive pipeline failures
+- **Regression is shorter than load** because branches get pushed frequently — 3.5 min is acceptable overhead, 5 min is not
+- **Load runs on main only** because it produces the authoritative trend data. Main is the stable reference point
+- **Stress is manual** because you *want* it to fail — gating on it makes no sense
+
+### Regression Analysis
+
+After every regression/load test, `compare-summary.ts` compares the run against `baseline.json`:
+
+| Metric | Regression if... | Direction |
+|--------|------------------|-----------|
+| `http_req_duration p90` | Increases > 10% | Higher = slower = bad |
+| `http_req_failed rate` | Any errors (baseline is 0%) | Any errors = bad |
+| `http_reqs rate` | Drops > 10% | Lower = less throughput = bad |
+
+The script exits non-zero on regression but `continue-on-error: true` means the pipeline continues. When MR3 adds Slack, regressions trigger an alert.
+
+### Usage
+
+```bash
+# Local development
+npm run test:load:local              # single iteration, debug
+npm run test:load:smoke              # 30s smoke test
+npm run test:load:regression         # 3.5 min regression test
+npm run test:load:load               # 5 min full load test
+npm run test:load:stress             # 6 min stress test (find breaking points)
+npm run test:load:analyze            # compare results/summary.json vs baseline.json
+```
+
+### Updating the Baseline
+
+The baseline (`tests/load/baseline.json`) is a committed file — the ratchet pattern:
+
+1. Run a load test (locally or download CI artifact)
+2. Review the numbers
+3. Update `baseline.json` with the new values
+4. Commit with a message explaining why (e.g. "update baseline: optimised DNS caching")
+
+Never silently accept slower performance. If the baseline needs loosening, document why.
 
 ### Port Forwarding in CI
 
