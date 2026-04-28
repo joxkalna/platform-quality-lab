@@ -1,0 +1,35 @@
+{
+  "thresholds": {
+    "http_req_failed": ["rate<0.05"],
+    "checks": ["rate>0.95"],
+    "http_req_duration": ["p(95)<2000"],
+    "http_req_duration{scenario:health-check-regression}": ["p(95)<200"],
+    "http_req_duration{scenario:data-flow-regression}": ["p(95)<500", "p(90)<300"]
+  },
+  "scenarios": {
+    "health-check-regression": {
+      "exec": "healthCheck",
+      "executor": "ramping-arrival-rate",
+      "startRate": 1,
+      "timeUnit": "1s",
+      "preAllocatedVUs": 3,
+      "maxVUs": 20,
+      "stages": [
+        { "duration": "30s", "target": 5 },
+        { "duration": "3m", "target": 5 }
+      ]
+    },
+    "data-flow-regression": {
+      "exec": "dataFlow",
+      "executor": "ramping-arrival-rate",
+      "startRate": 1,
+      "timeUnit": "1s",
+      "preAllocatedVUs": 3,
+      "maxVUs": 20,
+      "stages": [
+        { "duration": "30s", "target": 3 },
+        { "duration": "3m", "target": 3 }
+      ]
+    }
+  }
+}

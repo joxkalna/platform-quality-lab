@@ -73,7 +73,7 @@ k6 is deferred to Phase 6 because Services A and B are HTTP pass-throughs with m
 - External JSON load profiles — swap profiles without changing test code
 - `tests/load/` has its own `package.json` — only `@types/k6` for IDE autocomplete
 - Smoke test on every push, load test on every push (feature branches compare against main's artifact), stress test on-demand
-- Branch-vs-main comparison — adapted from production compute test pattern (run same profile, compare artifacts) instead of relying solely on committed baselines
+- Branch-vs-main comparison — adapted from production regression test pattern (run same profile, compare artifacts) instead of relying solely on committed baselines
 - 10% regression threshold (industry standard for performance gates)
 - Personal Slack workspace with Incoming Webhooks for CI alerts
 - GitHub Actions artifacts + committed baselines for tracking (cloud dashboards deferred to post Phase 7)
