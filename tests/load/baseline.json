@@ -1,0 +1,19 @@
+{
+  "type": "smoke",
+  "environment": "kind-ci",
+  "duration": "30s",
+  "scenarios": 3,
+  "maxVUs": 15,
+  "baseline": {
+    "checks": "100%",
+    "http_req_failed": "0%",
+    "http_req_duration_p95_ms": 15,
+    "http_req_waiting_p95_ms": 14.7,
+    "group_duration_p95_ms": 26
+  },
+  "source": {
+    "branch": "phase6/k6",
+    "date": "2026-04-28",
+    "note": "First CI smoke run on Kind cluster. MR1 baseline."
+  }
+}

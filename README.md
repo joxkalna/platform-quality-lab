@@ -27,6 +27,8 @@ npm run test:pact           # consumer contract tests
 npm run test:pact:verify    # provider verification
 npm run test:integration    # service endpoint tests
 npm run test:infra          # K8s infrastructure tests (needs Kind cluster)
+npm run test:load:local     # k6 single iteration (debug)
+npm run test:load:smoke     # k6 smoke test (30s, validates endpoints)
 npm run validate:manifests  # K8s manifest policy validation
 npm run lint                # ESLint + custom resilience rules
 ```
@@ -76,6 +78,7 @@ install → lint ──────────┐
         → pact ───────────┴→ deploy-and-test
                                ├── BATS infra tests
                                ├── Vitest integration tests
+                               ├── k6 smoke test
                                ├── Chaos experiments (main only)
                                └── Teardown (always)
 ```

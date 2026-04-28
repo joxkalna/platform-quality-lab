@@ -43,7 +43,7 @@ If Service A → B is slow but Service B alone is fast, the problem is in the ne
 
 ## Why k6
 
-- Native TypeScript support (experimental) or webpack bundling (proven)
+- Native TypeScript support (k6 v1.x runs `.ts` files directly)
 - External JSON load profiles — swap profiles without changing test code
 - `handleSummary` hook for custom output (JSON, HTML, JUnit)
 - Built-in `check` assertions with tagged metrics
@@ -65,24 +65,25 @@ tests/load/
 │   ├── requests/                  # Single HTTP calls with check assertions
 │   │   ├── service-a-api.ts       # /health, /ready, /data
 │   │   └── service-b-api.ts       # /health, /info
-│   ├── flows/                     # Reusable groups of requests (shared across scenarios)
+│   ├── flows/                     # Reusable groups of requests (k6 group() for aggregated metrics)
 │   │   ├── health-checks.ts       # Hit /health on all services
 │   │   └── data-flow.ts           # Service A → B chain
 │   ├── scenarios/                 # User journeys — exported as k6 scenario functions
-│   │   ├── health-check-scn.ts    # Baseline — all health endpoints
-│   │   └── data-flow-scn.ts       # Full A → B data flow
+│   │   ├── health-check-scn.ts    # Isolated baseline — health endpoints only
+│   │   ├── data-flow-scn.ts       # Isolated — A → B data flow only
+│   │   └── full-journey-scn.ts    # Chained — health checks then data flow
 │   ├── utils/
-│   │   ├── logger.ts              # Debug/info logger (controlled by env var)
-│   │   ├── get-request-params.ts  # Shared request params (headers, tags, timeout)
-│   │   └── handle-summary.ts      # handleSummary — JSON + text output
-│   ├── index.ts                   # k6 entrypoint — setup, teardown, scenario exports
-│   └── types.ts                   # Shared types (TestData, endpoints)
+│   │   ├── logger.ts              # Debug/info logger (controlled by __ENV.DEBUG)
+│   │   ├── request-params.ts      # Shared request params (headers, tags, timeout)
+│   │   ├── handle-summary.ts      # handleSummary — JSON + text output
+│   │   └── k6-libs.d.ts           # Type declarations for remote URL imports
+│   ├── index.ts                   # k6 entrypoint — setup, scenario exports, handleSummary
+│   └── types.ts                   # Shared types (TestConfig, Endpoint)
 ├── scripts/
 │   └── compare-summary.ts         # Regression analysis (compare current vs baseline)
-├── webpack.config.js              # Bundle for k6 runtime
-├── .babelrc                       # TypeScript transpilation
-├── tsconfig.json                  # TypeScript config
-└── package.json                   # k6 dev dependencies + scripts
+├── results/                       # k6 output (gitignored, uploaded as CI artifact)
+├── tsconfig.json                  # TypeScript config (noEmit, allowImportingTsExtensions)
+└── package.json                   # @types/k6 only — no build dependencies
 ```
 
 ### 3-Layer Separation
@@ -119,13 +120,14 @@ This section documents reusable patterns for k6 load testing and how they map to
 
 | Pattern | What it is | Why it works here |
 |---------|-----------|------------------|
-| Webpack + babel build | Bundle TypeScript → single JS file for k6 runtime | Standard production setup, proven and stable |
+| Native k6 TypeScript | k6 v1.x runs `.ts` files directly, no build step | Simpler than webpack, fewer moving parts, same type safety via `@types/k6` |
 | External JSON load profiles | Thresholds, VU counts, durations in JSON — separate from test code | Swap profiles without changing code |
 | Logger utility | `__ENV.DEBUG` flag controls debug/info output | Clean, no dependencies, works in k6 runtime |
 | Request params helper | Shared function for headers, transaction tags, timeout defaults | Avoids duplication across request functions |
-| handleSummary | JSON + text + JUnit output from k6's summary hook | Standard output format, CI-friendly |
+| handleSummary | JSON + text output from k6's summary hook | Standard output format, CI-friendly |
 | Regression analysis script | TypeScript script comparing two `summary.json` files, exits non-zero on threshold breach | Production pattern for CI gates |
 | Transaction tagging | Every request tagged with a transaction name for per-endpoint metrics | Enables per-scenario and per-endpoint thresholds in JSON config |
+| `group()` in flows | Wraps related requests for aggregated `group_duration` metrics | Business-level latency visibility alongside per-request detail |
 
 ### Adapt for this project
 
@@ -166,17 +168,22 @@ k6 frameworks commonly output JUnit XML for CI test reporting. k6 supports this 
 
 ---
 
-## Build Tooling: Webpack
+## Build Tooling: Native TypeScript
 
-k6 has experimental native TypeScript support (v0.54+), but it has limitations (no path aliases, limited module resolution, no env var injection). The webpack + babel approach is the established production pattern:
+k6 v1.x runs TypeScript files directly — no build step needed. This replaces the webpack + babel approach that was the standard before native TS support matured.
 
-- Webpack bundles TypeScript → single JS file that k6 can run
-- Babel handles TypeScript transpilation
-- `webpack.DefinePlugin` injects env vars at build time (e.g. `__DOTENV_BASE_URL`)
-- `CopyPlugin` copies data files to dist
-- k6 externals are excluded from the bundle (k6 provides them at runtime)
+**What this means:**
+- `k6 run src/index.ts` just works
+- No webpack config, no babel config, no build step
+- `package.json` only needs `@types/k6` for IDE autocomplete
+- Local imports require explicit `.ts` extensions (`import { info } from "./logger.ts"`)
+- `tsconfig.json` needs `allowImportingTsExtensions: true` and `noEmit: true`
+- Remote URL imports (e.g. `https://jslib.k6.io/...`) need a `.d.ts` file for type declarations
 
-This is the standard production k6 setup. When k6's native TS support matures, migration is straightforward — remove webpack, run k6 directly on the TS files.
+**Trade-off vs webpack:**
+- Native TS can't bundle npm packages (e.g. `k6-junit` for JUnit output) — only k6 built-in modules and remote URL imports work
+- If JUnit/HTML reports are needed later, either use remote URL versions or add webpack back
+- For this project, JSON + text output from `handleSummary` is sufficient
 
 ## Load Profiles
 
@@ -381,43 +388,43 @@ Not implementing cloud dashboards now — it's infrastructure overhead that does
 
 ## MR Breakdown
 
-### MR 1 — Framework scaffold + smoke test
+### MR 1 — Framework scaffold + smoke test ✅
 
 **Goal:** Learn k6, get the framework running locally and in CI.
 
-**What changes:**
+**What was built:**
 - `tests/load/` directory with full 3-layer structure (requests → flows → scenarios)
-- Webpack + babel build config
-- Request functions for Services A and B (health, data, info)
-- Flow functions composing requests into reusable groups
-- Scenario functions composing flows (health check, data flow)
+- Native k6 TypeScript (no webpack, no babel, no build step)
+- Request functions for Services A and B (health, ready, data, info)
+- Flow functions composing requests into reusable groups with `group()`
+- Three scenario types: `healthCheck` (isolated), `dataFlow` (isolated), `fullJourney` (chained)
 - Load profiles: `local-test.json`, `smoke-test.json`
-- `handleSummary` for JSON + text + JUnit output
-- Logger utility (debug/info controlled by env var)
+- `handleSummary` for JSON + text output
+- Logger utility (debug/info controlled by `__ENV.DEBUG`)
+- Request params helper (headers, transaction tags, timeout)
+- Type declarations for remote URL imports (`k6-libs.d.ts`)
 - npm scripts in root `package.json`: `test:load:local`, `test:load:smoke`
-- `tests/load/package.json` with k6 dev dependencies
-- Update README with load testing commands
-- Update project rules with k6 decisions
+- `tests/load/package.json` with `@types/k6` only
+- CI: k6 installed, smoke test runs after integration tests, before chaos
+- CI: `summary.json` uploaded as artifact
 
-**CI integration:**
-- Smoke test runs in `deploy-and-test` job after integration tests, before chaos
-- Runs against the Kind cluster (services already deployed)
-- Port-forward or use kubectl proxy to reach services from the CI host
-- Smoke test failure = pipeline failure
+**Design decisions made during implementation:**
+- Functional programming style throughout — arrow functions, no classes. Matches k6's own API
+- Isolated scenarios for baselines + chained journey for realistic traffic. Both are valuable: isolated tells you "how fast is this endpoint alone?", chained tells you "how does the system behave under realistic usage?"
+- `fail()` on check failure stops the VU iteration immediately — don't waste time on a broken system
+- `group()` in flows gives aggregated metrics per flow (`group_duration`), transaction tags on requests give per-endpoint metrics. Two levels of visibility
+- k6 requires `.ts` extensions on local imports (unlike Node.js/bundler setups). `allowImportingTsExtensions: true` in tsconfig suppresses IDE errors
 
-**What we learn:**
-- k6 TypeScript + webpack setup
-- Code organisation (requests, flows, scenarios) and when each layer earns its place
-- Writing checks and assertions with transaction tagging
-- Running against a Kind cluster via port-forwarding
-- handleSummary output (JSON + text + JUnit)
-- Production patterns: logger, request params helper, external profiles
+**Smoke baseline from first CI run (Kind cluster):**
+- `checks`: 100%
+- `http_req_failed`: 0%
+- `http_req_duration` p95: ~15ms
+- `group_duration` p95: ~26ms
 
-**Acceptance criteria:**
-- `npm run test:load:local` runs a single iteration against local services
-- `npm run test:load:smoke` runs smoke profile against local or Kind services
-- CI runs smoke test after deploy, before chaos
-- summary.json is produced
+**What we learned:**
+- k6 native TS is production-ready in v1.x — webpack is no longer needed
+- `group_duration` is the business-level metric (closer to real user experience than individual HTTP calls)
+- Smoke baselines are about regression detection, not capacity — stable, tight, low variance numbers are the foundation for heavier load tests
 
 ---
 
@@ -543,8 +550,8 @@ k6 is a single binary. Install in the CI job:
 ```yaml
 - name: Install k6
   run: |
-    curl -sL https://github.com/grafana/k6/releases/download/v0.56.0/k6-v0.56.0-linux-amd64.tar.gz | tar xz
-    sudo mv k6-v0.56.0-linux-amd64/k6 /usr/local/bin/k6
+    curl -sL https://github.com/grafana/k6/releases/download/v1.0.0/k6-v1.0.0-linux-amd64.tar.gz | tar xz
+    sudo mv k6-v1.0.0-linux-amd64/k6 /usr/local/bin/k6
 ```
 
 Pin the version — same principle as Kind and kubeconform.
@@ -553,9 +560,11 @@ Pin the version — same principle as Kind and kubeconform.
 
 | Decision | Rationale |
 |----------|-----------|
-| Webpack over native TS | Native k6 TS is experimental, webpack is proven in production |
+| Native TS over webpack | k6 v1.x runs `.ts` directly. No build step, no bundler config, no babel. Simpler, fewer moving parts |
+| Functional style (arrow functions, no classes) | Matches k6's own API. One consistent style across the framework. k6 runtime is not class-friendly |
+| Three scenario types (isolated + chained) | Isolated for baselines and bottleneck isolation, chained for realistic traffic patterns. Both are valuable |
 | Separate `tests/load/` directory | Load tests are a different concern from unit/integration tests |
-| Own `package.json` in `tests/load/` | k6 dependencies (webpack, babel, @types/k6) don't belong in root |
+| Own `package.json` in `tests/load/` | Only `@types/k6` needed — no build dependencies |
 | JSON load profiles | Swap profiles without changing test code — same test, different intensity |
 | Smoke in CI, load on main only | Smoke is fast (30s), load is slow (5min). Every push gets smoke, main gets full load |
 | Stress as manual trigger | Too slow and resource-intensive for every merge. Run on-demand or nightly |
@@ -563,9 +572,10 @@ Pin the version — same principle as Kind and kubeconform.
 | Slack webhook over bot | Webhook is simpler, no OAuth, no bot framework. Sufficient for CI alerts |
 | GitHub artifacts for baselines | Zero infrastructure, version-controlled via committed baseline file |
 | Service C excluded from load profiles | LLM on constrained Kind resources — chaos experiments already cover failure behaviour. Load testing deferred to real LLM backend |
-| JUnit output in handleSummary | Low effort, high visibility — CI can display test results natively |
 | Branch-vs-main comparison over stored-only baseline | Both runs under similar CI conditions gives more reliable comparison than a stale committed baseline alone |
 | Load test on feature branches too | Early feedback — don't wait for main to discover a regression |
+| `group()` in flows layer | Gives aggregated `group_duration` metrics per flow. Transaction tags on requests give per-endpoint detail. Two levels of visibility |
+| `fail()` on check failure | Stops the VU iteration immediately. Don't waste time on a broken system |
 
 ## Chaos + Load Combined (Future)
 
@@ -585,16 +595,13 @@ This is also where Service C could appear in load testing — not testing the LL
 
 ### Prerequisites
 - k6 installed (`brew install k6`)
-- Node.js (for webpack build)
+- Node.js (for `@types/k6` IDE support)
 - Services running locally (`npm run dev`) or Kind cluster deployed
 
 ### Commands (after MR 1)
 ```bash
-cd tests/load
-npm install                        # install k6 dev dependencies
-npm run build                      # webpack bundle
-npm run test:local                 # single iteration, debug logging
-npm run test:smoke                 # smoke test against local services
+npm run test:load:local            # single iteration, debug logging
+npm run test:load:smoke            # smoke test against local services
 ```
 
 ### Commands (after MR 2)
