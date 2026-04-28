@@ -1,5 +1,5 @@
-import { TestConfig } from "../types";
-import { dataFlow } from "../flows/data-flow";
+import { TestConfig } from "../types.ts";
+import { dataFlow } from "../flows/data-flow.ts";
 
 export const dataFlowScenario = (testConfig: TestConfig) => {
   dataFlow(testConfig);

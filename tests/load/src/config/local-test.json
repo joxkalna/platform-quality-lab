@@ -1,0 +1,10 @@
+{
+  "scenarios": {
+    "full-journey-local": {
+      "executor": "shared-iterations",
+      "exec": "fullJourney",
+      "iterations": 1,
+      "maxDuration": "1m"
+    }
+  }
+}

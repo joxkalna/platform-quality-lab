@@ -1,8 +1,8 @@
 import { check, fail } from "k6";
 import http from "k6/http";
-import { debug } from "../utils/logger";
-import { getRequestParams } from "../utils/request-params";
-import { TestConfig } from "../types";
+import { debug } from "../utils/logger.ts";
+import { getRequestParams } from "../utils/request-params.ts";
+import { TestConfig } from "../types.ts";
 
 export const getHealth = (testConfig: TestConfig) => {
   const transaction = "serviceA_getHealth";
