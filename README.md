@@ -27,6 +27,8 @@ npm run test:pact           # consumer contract tests
 npm run test:pact:verify    # provider verification
 npm run test:integration    # service endpoint tests
 npm run test:infra          # K8s infrastructure tests (needs Kind cluster)
+npm run test:load:local     # k6 single iteration (debug)
+npm run test:load:smoke     # k6 smoke test (30s, validates endpoints)
 npm run validate:manifests  # K8s manifest policy validation
 npm run lint                # ESLint + custom resilience rules
 ```
@@ -76,6 +78,7 @@ install → lint ──────────┐
         → pact ───────────┴→ deploy-and-test
                                ├── BATS infra tests
                                ├── Vitest integration tests
+                               ├── k6 smoke test
                                ├── Chaos experiments (main only)
                                └── Teardown (always)
 ```
@@ -90,15 +93,19 @@ install → lint ──────────┐
 - [ ] Phase 6: AI service (Service C + Pact evolution + k6 load testing)
 - [ ] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
 - [ ] Phase 8: API collections (Bruno — exploratory testing, environment management, CI smoke tests)
+- [ ] Phase 9: UI + frontend quality (React UI for classify, Pact frontend consumer, Lighthouse CI, k6 browser, Playwright E2E)
 
 ## Documentation
 
-| Doc | What it covers |
-|-----|---------------|
-| [TESTING.md](TESTING.md) | Testing strategy, test layers, scaling patterns |
-| [CHAOS.md](CHAOS.md) | Chaos experiment log, learnings, guardrail implications |
-| [docs/chaos-environments.md](docs/chaos-environments.md) | Local → staging → production chaos mapping |
-| [docs/manifest-validation.md](docs/manifest-validation.md) | K8s policy validation rules, packaging strategy |
-| [docs/code-quality-gates.md](docs/code-quality-gates.md) | Custom ESLint rules, shared coding standards path |
-| [docs/ci-dependencies.md](docs/ci-dependencies.md) | CI dependency audit, image strategy |
-| [docs/pact/](docs/pact/) | Contract testing — big picture, guides, CI/CD patterns, break-glass, breaking changes |
+Full index: [docs/README.md](docs/README.md)
+
+| Area | Key docs |
+|------|----------|
+| Testing | [strategy](docs/testing/strategy.md), [chaos log](docs/testing/chaos-log.md) |
+| Pact | [docs/pact/](docs/pact/) — big picture, guides, CI/CD patterns, break-glass, breaking changes |
+| Performance | [when to test](docs/performance/perf-min.md), [baselines](docs/performance/perf-baseline.md), [k6 plan](docs/performance/k6-load-testing.md) |
+| CI | [dependencies](docs/ci/ci-dependencies.md), [manifest validation](docs/ci/manifest-validation.md), [code quality](docs/ci/code-quality-gates.md) |
+| Resilience | [chaos environments](docs/resilience/chaos-environments.md), [SRE automation](docs/resilience/resilience-automation.md) |
+| Observability | [requirements](docs/observability/observability.md) |
+| LLMOps | [testing strategy](docs/llmops/testing-strategy.md) |
+| Roadmap | [Phase 9 — UI + frontend](docs/roadmap/phase9-ui-frontend-quality.md) |

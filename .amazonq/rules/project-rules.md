@@ -51,46 +51,49 @@ These rules exist because they were violated during development and caused real 
 - **Phase 6** AI service — add a new service wrapping an LLM API, deploy to Kind, wire into service mesh, load test with k6
 - **Phase 7** LLMOps — non-deterministic assertion patterns, golden set benchmarks, accuracy thresholds as CI gates, consistency tests, evaluation pipelines
 - **Phase 8** API collections (Bruno) — version-controlled API collections for exploratory testing, environment management, CI smoke tests via `bru run`
+- **Phase 9** UI + frontend quality — React UI for Service C's classify endpoint, frontend Pact consumer, Lighthouse CI gates, k6 browser testing, Playwright E2E
 
 ## Phase 6 Load Testing with k6
-k6 is deferred to Phase 6 because Services A and B are HTTP pass-throughs with minimal resource usage (11-15Mi memory, 1-13m CPU). Load testing them confirms they handle concurrent requests but there's little to discover.
+Full plan, architecture, MR breakdown, and decisions documented in `docs/performance/k6-load-testing.md`.
 
-Service C (AI) changes this — it has real processing (prompt construction, LLM calls, response parsing, confidence scoring) that consumes meaningful CPU and memory. k6 becomes valuable for:
-- **Performance baselines** — what's the p95 response time for classification under normal load?
-- **Breaking point discovery** — at what concurrency does Service C OOMKill or start timing out?
-- **Regression detection** — did this prompt change make the service 2x slower?
-- **Chaos + load combined** — does the system perform under load WHILE a pod dies? This is the real production scenario
+k6 is deferred to Phase 6 because Services A and B are HTTP pass-throughs with minimal resource usage. Service C (AI) has real processing that makes load testing valuable: performance baselines, breaking point discovery, regression detection, chaos + load combined.
 
-**k6 framework structure**:
-```
-tests/load/
-├── config/
-│   ├── smoke-test.json          # Single iteration, verify scripts work
-│   ├── load-test.json           # Sustained load at expected traffic levels
-│   └── stress-test.json         # Push beyond limits to find breaking point
-├── scenarios/
-│   ├── health-check.ts          # Baseline — hit /health on all services
-│   ├── data-pipeline.ts         # Service A → B chain under load
-│   └── ai-classification.ts     # Service C processing under load
-├── utils/
-│   └── thresholds.ts            # Shared threshold definitions
-└── k6.config.ts
-```
+**Scope:** k6 load tests Services A and B — HTTP throughput, latency under concurrency, infrastructure isolation (is the bottleneck in the service, the DNS, or the networking?). Service C is excluded from load profiles — LLM on constrained Kind resources means chaos experiments already cover its failure behaviour. Service C load testing deferred to when there's a real LLM backend worth profiling.
 
-The framework follows a 3-layer separation common in production k6 setups:
-- **Scenarios** — user journeys composed of transactions (e.g. "browse → classify → rate")
-- **Transactions** — logical steps composed of requests (e.g. "classify" = call Service C, parse response)
-- **Requests** — single HTTP calls with check assertions (e.g. `POST /classify` with status + body checks)
+**MR breakdown:**
+- MR 1 ✅ — Framework scaffold + smoke test (native k6 TypeScript, 3-layer architecture, CI smoke)
+- MR 2 — Load + stress profiles + regression analysis (10% threshold, GitHub artifacts, baselines)
+- MR 3 — Slack notifications + monitoring (personal Slack workspace, webhook alerts on regression)
 
-Same request function reused across transactions, same transaction reused across scenarios. Load profiles (thresholds, VU counts, durations) live in external JSON configs — swap profiles without changing test code.
+**Key decisions:**
+- Native k6 TypeScript over webpack + babel — k6 v1.x runs `.ts` files directly, no build step needed. Requires `.ts` extensions on all local imports and `allowImportingTsExtensions: true` in tsconfig
+- Functional programming style throughout — arrow functions, no classes. Matches k6's own API (`check()`, `group()`, `http.get()`). Logger, request params, handleSummary are all plain exported functions
+- 3-layer architecture: requests → flows → scenarios. Requests are atomic HTTP calls with `check()` assertions and transaction tags. Flows compose requests into reusable groups with `group()` for aggregated metrics. Scenarios compose flows into user journeys
+- Three scenario types: `healthCheck` (isolated baseline), `dataFlow` (isolated A → B hop), `fullJourney` (chained realistic journey). Isolated scenarios for baselines, chained for realistic traffic patterns
+- External JSON load profiles — swap profiles without changing test code
+- `tests/load/` has its own `package.json` — only `@types/k6` for IDE autocomplete
+- Smoke test on every push, load test on every push (feature branches compare against main's artifact), stress test on-demand
+- Branch-vs-main comparison — adapted from production compute test pattern (run same profile, compare artifacts) instead of relying solely on committed baselines
+- 10% regression threshold (industry standard for performance gates)
+- Personal Slack workspace with Incoming Webhooks for CI alerts
+- GitHub Actions artifacts + committed baselines for tracking (cloud dashboards deferred to post Phase 7)
+- Service C excluded from load profiles — chaos experiments cover LLM failure behaviour, load testing deferred to real backend
+- k6 runs on CI host with port-forwarding to Kind cluster (same approach as integration tests)
+- Reusable utilities: logger, request params helper, transaction tagging, handleSummary (JSON + text output)
 
-**CI integration:**
-- Smoke test on every push (single iteration — validates scripts work)
-- Load test on merge to main (sustained load — catches performance regressions)
-- Stress test on-demand or nightly (finds breaking points — too slow for every push)
+**MR1 smoke baseline (CI — Kind cluster):**
+- `checks`: 100%
+- `http_req_failed`: 0%
+- `http_req_duration` p95: ~15ms
+- `http_req_waiting` p95: ~14.7ms
+- `group_duration` p95: ~26ms
 
-**Regression detection:**
-Compare current results against baseline metrics with a threshold (e.g. 10% deviation). If p95 latency increases by more than 10% from the previous run, the pipeline fails. Same pattern as the golden set accuracy threshold in Phase 7 (LLMOps) — a ratchet that prevents silent degradation.
+These are smoke baselines from the first CI run. Load baselines (MR2) will be established under sustained traffic.
+
+**Performance documentation:**
+- `docs/performance/perf-min.md` — when performance testing is required, decision checklist
+- `docs/performance/perf-baseline.md` — per-endpoint thresholds, regression criteria, baseline load definition
+- `docs/performance/k6-load-testing.md` — full implementation plan, architecture, MR breakdown, production patterns
 
 ## Phase 6 Pact Evolution
 Adding Service C creates a new service boundary and an opportunity to exercise real-world Pact scenarios that don't come up when you only have two services.
@@ -221,7 +224,10 @@ Exercising the production Expand and Contract pattern from `09-coordinated-break
 **CI improvement discovered:** `[skip pact]` in commit messages doesn't work on PR merges — `github.event.head_commit.message` only sees the merge commit. Replaced with `PACT_ENABLED` repository variable (`vars.PACT_ENABLED != 'false'`).
 
 After exercises:
-- k6 load testing framework
+- k6 load testing framework (in progress — see `docs/k6-load-testing.md` for full plan)
+  - MR 1: Framework scaffold + smoke test
+  - MR 2: Load + stress profiles + regression analysis
+  - MR 3: Slack notifications + monitoring
 - Integration tests for Service C (deferred to Phase 7 LLMOps golden sets — Pact covers API shape)
 
 ## Future Improvements
@@ -251,7 +257,7 @@ Benefits:
 - Tests don't need env vars — pass config directly
 - No side effects on import — safe to import from any context
 - Config is explicit — no hidden dependency on `process.env`
-- Same pattern used by NestJS (`NestFactory.create`), Express testing guides, and production Express/Fastify apps
+- Same pattern used in Express testing guides and popular Node.js frameworks
 
 Apply this when refactoring after Phase 7 (LLMOps) — it touches every service and every test that imports `app.ts`.
 
@@ -291,7 +297,7 @@ Prerequisites: Docker running + Kind cluster deployed (`./scripts/deploy-local.s
 - VPN blocks GitHub downloads and image pulls inside Kind nodes — workaround: bundle manifests locally (`k8s/vendor/`), `docker pull` on host then `kind load` into cluster
 - metrics-server manifest bundled at `k8s/vendor/metrics-server.yaml` with `--kubelet-insecure-tls` baked in — no network dependency at deploy time
 - `--kubelet-insecure-tls` is safe in Kind — it only skips TLS between fake nodes inside Docker's internal network, never touches the real network. Required because Kind nodes don't have real TLS certs
-- `imagePullPolicy: Never` is safe in Kind — images are pre-loaded via `kind load`, no registry involved. In a real cluster (EKS/GKE) you'd use a container registry instead
+- `imagePullPolicy: Never` is safe in Kind — images are pre-loaded via `kind load`, no registry involved. In a real cloud cluster you'd use a container registry instead
 
 ## Phase 4 Chaos Experiments
 All chaos scripts live in `scripts/chaos/`. They require a running Kind cluster with services deployed.
@@ -395,3 +401,27 @@ All quality tooling in `scripts/` is structured for future extraction into a sha
 - Idle CPU: 1-13m per pod (limit: 200m)
 - Idle memory: 11-15Mi per pod (limit: 128Mi)
 - Significant headroom — Phase 4 will push toward limits to trigger throttling/OOMKills
+
+## Phase 9 UI + Frontend Quality
+Full plan, architecture, MR breakdown, and decisions documented in `docs/phase9-ui-frontend-quality.md`.
+
+A minimal React UI for Service C's `/classify` endpoint. The UI is intentionally trivial — same philosophy as the backend services. The focus is on the quality engineering layers around it.
+
+**What it adds:**
+- New service boundary: UI (consumer) → Service A (provider) — Pact contract for `/classify` response shape
+- Frontend performance budgets: Lighthouse CI gates (LCP, CLS, TTI)
+- Browser-based load testing: k6 browser module — real Chromium sessions alongside HTTP load
+- E2E functional tests: Playwright — user flows, error states, loading states
+- Frontend chaos: Playwright assertions during backend failure injection
+
+**MR breakdown:**
+- MR 1 — UI scaffold + deploy to Kind (React app, Dockerfile, K8s manifest)
+- MR 2 — Frontend Pact consumer (UI → Service A contract, can-i-deploy for 4 services)
+- MR 3 — Playwright E2E (happy path, error states, CI integration)
+- MR 4 — Lighthouse CI (performance budgets, artifact upload)
+- MR 5 — k6 browser + frontend chaos (combined HTTP + browser load, chaos + Playwright assertions)
+
+**Key insight — frontend contract testing:**
+The UI's Pact consumer test doesn't need a browser. It tests the API client layer — the function that calls `/classify` and parses the response. Pact tests the contract between the UI's API client and Service A, not the UI rendering. This is one of the most common Pact use cases — frontend consumers write pacts against backend APIs so that backend changes can't break the UI without `can-i-deploy` catching it first.
+
+**Depends on:** Phase 6 (k6 framework), Phase 7 (LLMOps golden sets), Phase 8 (Bruno API surface)
