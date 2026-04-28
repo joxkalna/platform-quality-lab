@@ -94,13 +94,15 @@ install → lint ──────────┐
 
 ## Documentation
 
-| Doc | What it covers |
-|-----|---------------|
-| [TESTING.md](TESTING.md) | Testing strategy, test layers, scaling patterns |
-| [CHAOS.md](CHAOS.md) | Chaos experiment log, learnings, guardrail implications |
-| [docs/chaos-environments.md](docs/chaos-environments.md) | Local → staging → production chaos mapping |
-| [docs/manifest-validation.md](docs/manifest-validation.md) | K8s policy validation rules, packaging strategy |
-| [docs/code-quality-gates.md](docs/code-quality-gates.md) | Custom ESLint rules, shared coding standards path |
-| [docs/ci-dependencies.md](docs/ci-dependencies.md) | CI dependency audit, image strategy |
-| [docs/pact/](docs/pact/) | Contract testing — big picture, guides, CI/CD patterns, break-glass, breaking changes |
-| [docs/phase9-ui-frontend-quality.md](docs/phase9-ui-frontend-quality.md) | Phase 9 plan — React UI, frontend Pact, Lighthouse CI, k6 browser, Playwright E2E |
+Full index: [docs/README.md](docs/README.md)
+
+| Area | Key docs |
+|------|----------|
+| Testing | [strategy](docs/testing/strategy.md), [chaos log](docs/testing/chaos-log.md) |
+| Pact | [docs/pact/](docs/pact/) — big picture, guides, CI/CD patterns, break-glass, breaking changes |
+| Performance | [when to test](docs/performance/perf-min.md), [baselines](docs/performance/perf-baseline.md), [k6 plan](docs/performance/k6-load-testing.md) |
+| CI | [dependencies](docs/ci/ci-dependencies.md), [manifest validation](docs/ci/manifest-validation.md), [code quality](docs/ci/code-quality-gates.md) |
+| Resilience | [chaos environments](docs/resilience/chaos-environments.md), [SRE automation](docs/resilience/resilience-automation.md) |
+| Observability | [requirements](docs/observability/observability.md) |
+| LLMOps | [testing strategy](docs/llmops/testing-strategy.md) |
+| Roadmap | [Phase 9 — UI + frontend](docs/roadmap/phase9-ui-frontend-quality.md) |

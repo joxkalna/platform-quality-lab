@@ -2,7 +2,7 @@
 
 This document defines the **minimum performance expectations** for this project's services and acts as a **baseline for performance testing results and regressions**.
 
-It complements `perf-min.md` (when to test) by making performance testing **objective and actionable** — clear pass/fail criteria, not subjective interpretation.
+It complements [perf-min.md](perf-min.md) (when to test) by making performance testing **objective and actionable** — clear pass/fail criteria, not subjective interpretation.
 
 This baseline is **service‑specific by design**. `perf-min.md` defines *when* and *why* to test; this document defines *what good looks like* here.
 
