@@ -28,7 +28,7 @@ jobs:
           cd services/service-a && npm ci
           cd ../service-b && npm ci
           cd ../service-c && npm ci
-          cd ../../../tests/load && npm ci
+          cd ../../tests/load && npm ci
 
       - name: Cache node_modules
         uses: actions/cache/save@v5
