@@ -160,6 +160,37 @@ jobs:
           path: tests/load/results/
           if-no-files-found: ignore
 
+      # --- k6 performance tests (non-blocking, regression detection) ---
+      # Branches: regression test (~3.5 min) — fast feedback before merge
+      # Main: full load test (5 min) — proper data, historical trend
+      # Neither blocks the pipeline. Alerts via Slack on regression (MR3).
+
+      - name: Run k6 regression test (branch)
+        if: github.ref != 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          mkdir -p tests/load/results
+          npm run test:load:regression
+
+      - name: Run k6 load test (main)
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          mkdir -p tests/load/results
+          npm run test:load:load
+
+      - name: Run k6 regression analysis
+        continue-on-error: true
+        run: npm run test:load:analyze
+
+      - name: Upload k6 load results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: k6-load-results
+          path: tests/load/results/
+          if-no-files-found: ignore
+
       # --- Chaos experiments (main only) ---
       # In a real org, chaos runs as a downstream pipeline against staging.
       # It triggers after deploy succeeds, runs independently, and reports

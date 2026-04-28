@@ -1,19 +1,22 @@
 {
-  "type": "smoke",
+  "type": "load",
   "environment": "kind-ci",
-  "duration": "30s",
+  "duration": "5m",
   "scenarios": 3,
   "maxVUs": 15,
   "baseline": {
     "checks": "100%",
     "http_req_failed": "0%",
-    "http_req_duration_p95_ms": 15,
-    "http_req_waiting_p95_ms": 14.7,
-    "group_duration_p95_ms": 26
+    "http_req_duration_p90_ms": 3.86,
+    "http_req_duration_p95_ms": 4.75,
+    "http_req_waiting_p95_ms": 4.63,
+    "group_duration_p95_ms": 9.11,
+    "iteration_duration_p95_ms": 12.26,
+    "http_reqs_rate": 20.0
   },
   "source": {
     "branch": "phase6/k6",
     "date": "2026-04-28",
-    "note": "First CI smoke run on Kind cluster. MR1 baseline."
+    "note": "First load test on Kind cluster. 5min sustained traffic (5 req/s health, 3 req/s data, 2 req/s journey)."
   }
 }

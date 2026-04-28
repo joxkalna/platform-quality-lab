@@ -1,0 +1,51 @@
+{
+  "thresholds": {
+    "http_req_failed": ["rate<0.05"],
+    "checks": ["rate>0.95"],
+    "http_req_duration": ["p(95)<2000"],
+    "http_req_duration{scenario:health-check-load}": ["p(95)<200"],
+    "http_req_duration{scenario:data-flow-load}": ["p(95)<500", "p(90)<300"],
+    "http_req_duration{scenario:full-journey-load}": ["p(95)<500"]
+  },
+  "scenarios": {
+    "health-check-load": {
+      "exec": "healthCheck",
+      "executor": "ramping-arrival-rate",
+      "startRate": 1,
+      "timeUnit": "1s",
+      "preAllocatedVUs": 5,
+      "maxVUs": 50,
+      "stages": [
+        { "duration": "1m", "target": 5 },
+        { "duration": "3m", "target": 5 },
+        { "duration": "1m", "target": 0 }
+      ]
+    },
+    "data-flow-load": {
+      "exec": "dataFlow",
+      "executor": "ramping-arrival-rate",
+      "startRate": 1,
+      "timeUnit": "1s",
+      "preAllocatedVUs": 5,
+      "maxVUs": 50,
+      "stages": [
+        { "duration": "1m", "target": 3 },
+        { "duration": "3m", "target": 3 },
+        { "duration": "1m", "target": 0 }
+      ]
+    },
+    "full-journey-load": {
+      "exec": "fullJourney",
+      "executor": "ramping-arrival-rate",
+      "startRate": 1,
+      "timeUnit": "1s",
+      "preAllocatedVUs": 5,
+      "maxVUs": 50,
+      "stages": [
+        { "duration": "1m", "target": 2 },
+        { "duration": "3m", "target": 2 },
+        { "duration": "1m", "target": 0 }
+      ]
+    }
+  }
+}
