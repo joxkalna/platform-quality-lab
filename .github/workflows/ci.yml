@@ -28,6 +28,7 @@ jobs:
           cd services/service-a && npm ci
           cd ../service-b && npm ci
           cd ../service-c && npm ci
+          cd ../../tests/load && npm ci
 
       - name: Cache node_modules
         uses: actions/cache/save@v5
@@ -37,6 +38,7 @@ jobs:
             services/service-a/node_modules
             services/service-b/node_modules
             services/service-c/node_modules
+            tests/load/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
   lint:

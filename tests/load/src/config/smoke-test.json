@@ -1,0 +1,33 @@
+{
+  "thresholds": {
+    "http_req_failed": ["rate<0.05"],
+    "checks": ["rate>0.95"],
+    "http_req_duration": ["p(95)<2000"]
+  },
+  "scenarios": {
+    "health-check-smoke": {
+      "exec": "healthCheck",
+      "executor": "constant-arrival-rate",
+      "rate": 2,
+      "timeUnit": "10s",
+      "preAllocatedVUs": 5,
+      "duration": "30s"
+    },
+    "data-flow-smoke": {
+      "exec": "dataFlow",
+      "executor": "constant-arrival-rate",
+      "rate": 1,
+      "timeUnit": "10s",
+      "preAllocatedVUs": 5,
+      "duration": "30s"
+    },
+    "full-journey-smoke": {
+      "exec": "fullJourney",
+      "executor": "constant-arrival-rate",
+      "rate": 1,
+      "timeUnit": "10s",
+      "preAllocatedVUs": 5,
+      "duration": "30s"
+    }
+  }
+}

@@ -35,6 +35,7 @@ jobs:
             services/service-a/node_modules
             services/service-b/node_modules
             services/service-c/node_modules
+            tests/load/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             deps-
@@ -135,6 +136,29 @@ jobs:
 
       - name: Run integration tests
         run: npm run test:integration
+
+      # --- k6 smoke test ---
+
+      - name: Install k6
+        run: |
+          curl -sL https://github.com/grafana/k6/releases/download/v1.0.0/k6-v1.0.0-linux-amd64.tar.gz | tar xz
+          sudo mv k6-v1.0.0-linux-amd64/k6 /usr/local/bin/k6
+
+      - name: Run k6 smoke test
+        run: |
+          kubectl port-forward svc/service-a 3000:3000 &
+          kubectl port-forward svc/service-b 3001:3001 &
+          sleep 3
+          mkdir -p tests/load/results
+          npm run test:load:smoke
+
+      - name: Upload k6 results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: k6-results
+          path: tests/load/results/
+          if-no-files-found: ignore
 
       # --- Chaos experiments (main only) ---
       # In a real org, chaos runs as a downstream pipeline against staging.

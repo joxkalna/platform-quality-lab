@@ -1,0 +1,8 @@
+{
+  "name": "platform-quality-lab-load-tests",
+  "private": true,
+  "description": "k6 load tests for platform-quality-lab",
+  "devDependencies": {
+    "@types/k6": "^1.7.0"
+  }
+}

@@ -20,7 +20,9 @@
     "test:pact": "vitest run --config tests/pact/vitest.pact-consumer.config.mts",
     "pact:publish": "./scripts/pact/publish.sh",
     "pact:init-provider": "./scripts/pact/initialise-provider.sh",
-    "validate:manifests": "npx tsx scripts/validate-manifests.ts"
+    "validate:manifests": "npx tsx scripts/validate-manifests.ts",
+    "test:load:local": "cd tests/load && k6 run src/index.ts --config src/config/local-test.json -e DEBUG=true",
+    "test:load:smoke": "cd tests/load && k6 run src/index.ts --config src/config/smoke-test.json"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
