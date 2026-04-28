@@ -1,10 +1,10 @@
-import { info } from "./utils/logger";
-import { TestConfig } from "./types";
-import { healthCheckScenario } from "./scenarios/health-check-scn";
-import { dataFlowScenario } from "./scenarios/data-flow-scn";
-import { fullJourneyScenario } from "./scenarios/full-journey-scn";
+import { dataFlowScenario } from "./scenarios/data-flow-scn.ts";
+import { fullJourneyScenario } from "./scenarios/full-journey-scn.ts";
+import { healthCheckScenario } from "./scenarios/health-check-scn.ts";
+import { TestConfig } from "./types.ts";
+import { info } from "./utils/logger.ts";
 
-export { handleSummary } from "./utils/handle-summary";
+export { handleSummary } from "./utils/handle-summary.ts";
 
 export const setup = (): TestConfig => {
   const serviceA = __ENV.SERVICE_A_URL || "http://localhost:3000";
@@ -27,7 +27,7 @@ export const dataFlow = (testConfig: TestConfig) => {
 export const fullJourney = (testConfig: TestConfig) => {
   fullJourneyScenario(testConfig);
 };
-
+// k6 requires a default export as the main test entry point
 export default (testConfig: TestConfig) => {
   fullJourneyScenario(testConfig);
 };
