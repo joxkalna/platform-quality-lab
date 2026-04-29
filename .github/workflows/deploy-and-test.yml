@@ -250,6 +250,38 @@ jobs:
           path: scripts/chaos/reports/
           if-no-files-found: ignore
 
+      # --- Dashboard trend data ---
+      # Pattern: download previous artifact → append new entry → re-upload.
+      # Artifact is the "database" — accumulates one entry per main pipeline run.
+      # GitHub REST API used directly (no third-party actions).
+
+      - name: Download previous trend data
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: bash scripts/dashboard/download-trend.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract performance trend
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: npm run trend:perf
+
+      - name: Extract chaos trend
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: npm run trend:chaos
+
+      - name: Upload dashboard data
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: dashboard-data
+          path: |
+            docs/dashboard/trend.json
+            docs/dashboard/chaos-trend.json
+          if-no-files-found: ignore
+
       # --- Teardown ---
 
       - name: Delete Kind cluster

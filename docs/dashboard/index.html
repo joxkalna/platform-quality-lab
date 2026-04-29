@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Platform Quality Lab — Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; padding: 2rem; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .top-bar h1 { font-size: 1.5rem; }
+    .time-picker { display: flex; gap: 0.25rem; }
+    .time-picker button {
+      background: #21262d; border: 1px solid #30363d; color: #8b949e;
+      padding: 0.4rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+    }
+    .time-picker button:hover { border-color: #58a6ff; color: #e6edf3; }
+    .time-picker button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    .subtitle { color: #8b949e; margin-bottom: 1.5rem; font-size: 0.85rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; }
+    .card h2 { font-size: 0.9rem; margin-bottom: 1rem; color: #8b949e; font-weight: 500; }
+    .card canvas { width: 100% !important; height: 200px !important; }
+    .full-width { grid-column: 1 / -1; }
+    .chaos-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .chaos-table th, .chaos-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #21262d; }
+    .chaos-table th { color: #8b949e; font-weight: 500; }
+    .pass { color: #3fb950; }
+    .fail { color: #f85149; }
+    .empty { color: #8b949e; text-align: center; padding: 2rem; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <h1>Platform Quality Lab</h1>
+    <div class="time-picker">
+      <button data-days="7">7d</button>
+      <button data-days="14">14d</button>
+      <button data-days="30" class="active">30d</button>
+      <button data-days="90">90d</button>
+      <button data-days="0">All</button>
+    </div>
+  </div>
+  <p class="subtitle" id="rangeLabel">Showing last 30 days</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Latency (p90 / p95)</h2>
+      <canvas id="latencyChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>Throughput (req/s)</h2>
+      <canvas id="throughputChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>Error Rate (%)</h2>
+      <canvas id="errorChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>Chaos Pass Rate</h2>
+      <canvas id="chaosChart"></canvas>
+    </div>
+    <div class="card full-width">
+      <h2>Chaos Experiment History</h2>
+      <table class="chaos-table">
+        <thead><tr><th>Date</th><th>Branch</th><th>Result</th><th>Experiments</th></tr></thead>
+        <tbody id="chaosTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let perfData = [];
+    let chaosData = [];
+    let charts = {};
+    let selectedDays = 30;
+
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+      scales: {
+        x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+        y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+      },
+    };
+
+    function filterByDays(data, days) {
+      if (days === 0) return data;
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+      return data.filter(d => d.date >= cutoffStr);
+    }
+
+    function destroyCharts() {
+      Object.values(charts).forEach(c => c.destroy());
+      charts = {};
+    }
+
+    function renderPerf(data) {
+      const canvas = document.getElementById('latencyChart');
+      if (data.length === 0) return;
+
+      const labels = data.map(d => d.date);
+
+      charts.latency = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'p90', data: data.map(d => d.p90_ms), borderColor: '#58a6ff', tension: 0.3, pointRadius: 3 },
+            { label: 'p95', data: data.map(d => d.p95_ms), borderColor: '#f78166', tension: 0.3, pointRadius: 3 },
+          ],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, title: { display: true, text: 'ms', color: '#8b949e' } } } },
+      });
+
+      charts.throughput = new Chart(document.getElementById('throughputChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ label: 'req/s', data: data.map(d => d.req_rate), borderColor: '#3fb950', tension: 0.3, pointRadius: 3 }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, title: { display: true, text: 'req/s', color: '#8b949e' } } } },
+      });
+
+      charts.errors = new Chart(document.getElementById('errorChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ label: 'error %', data: data.map(d => d.error_rate), borderColor: '#f85149', tension: 0.3, pointRadius: 3 }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, title: { display: true, text: '%', color: '#8b949e' } } } },
+      });
+    }
+
+    function renderChaos(data) {
+      const tbody = document.getElementById('chaosTable');
+
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">No chaos data in this range.</td></tr>';
+        return;
+      }
+
+      const labels = data.map(d => d.date);
+      const passRates = data.map(d => (d.passed / d.total) * 100);
+
+      charts.chaos = new Chart(document.getElementById('chaosChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{ label: 'pass %', data: passRates, backgroundColor: passRates.map(r => r === 100 ? '#3fb950' : '#f85149') }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 100, title: { display: true, text: '%', color: '#8b949e' } } } },
+      });
+
+      tbody.innerHTML = data.slice().reverse().map(d => {
+        const status = d.failed === 0
+          ? '<span class="pass">✅ All passed</span>'
+          : `<span class="fail">❌ ${d.failed}/${d.total} failed</span>`;
+        const experiments = d.experiments
+          .map(e => `<span class="${e.passed ? 'pass' : 'fail'}">${e.passed ? '✓' : '✗'} ${e.name}</span>`)
+          .join(', ');
+        return `<tr><td>${d.date}</td><td>${d.branch}</td><td>${status}</td><td>${experiments}</td></tr>`;
+      }).join('');
+    }
+
+    function render() {
+      destroyCharts();
+      const filteredPerf = filterByDays(perfData, selectedDays);
+      const filteredChaos = filterByDays(chaosData, selectedDays);
+      renderPerf(filteredPerf);
+      renderChaos(filteredChaos);
+
+      const label = selectedDays === 0 ? 'Showing all data' : `Showing last ${selectedDays} days`;
+      document.getElementById('rangeLabel').textContent = label;
+    }
+
+    // Time picker
+    document.querySelectorAll('.time-picker button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.time-picker .active').classList.remove('active');
+        btn.classList.add('active');
+        selectedDays = parseInt(btn.dataset.days);
+        render();
+      });
+    });
+
+    // Load data
+    async function load(file) {
+      try {
+        const res = await fetch(file);
+        return res.ok ? await res.json() : [];
+      } catch { return []; }
+    }
+
+    Promise.all([load('trend.json'), load('chaos-trend.json')]).then(([perf, chaos]) => {
+      perfData = perf;
+      chaosData = chaos;
+      render();
+    });
+  </script>
+</body>
+</html>
