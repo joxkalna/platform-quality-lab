@@ -1,7 +1,1 @@
-[
-  { "date": "2025-04-25", "branch": "main", "p90_ms": 3.92, "p95_ms": 4.80, "req_rate": 19.8, "error_rate": 0 },
-  { "date": "2025-04-26", "branch": "main", "p90_ms": 3.86, "p95_ms": 4.75, "req_rate": 20.0, "error_rate": 0 },
-  { "date": "2025-04-27", "branch": "phase6/k6", "p90_ms": 4.10, "p95_ms": 5.02, "req_rate": 19.5, "error_rate": 0 },
-  { "date": "2025-04-28", "branch": "main", "p90_ms": 3.86, "p95_ms": 4.75, "req_rate": 20.0, "error_rate": 0 },
-  { "date": "2025-04-29", "branch": "phase6/slack", "p90_ms": 7.03, "p95_ms": 8.12, "req_rate": 185.8, "error_rate": 0 }
-]
+[]
