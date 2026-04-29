@@ -32,5 +32,39 @@
         "passed": true
       }
     ]
+  },
+  {
+    "date": "2026-04-29",
+    "branch": "main",
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "experiments": [
+      {
+        "name": "dependency-failure",
+        "service": "service-a",
+        "passed": true
+      },
+      {
+        "name": "latency-injection",
+        "service": "service-a",
+        "passed": true
+      },
+      {
+        "name": "pod-kill",
+        "service": "service-a",
+        "passed": true
+      },
+      {
+        "name": "pod-kill",
+        "service": "service-b",
+        "passed": true
+      },
+      {
+        "name": "resource-pressure-all",
+        "service": "service-a",
+        "passed": true
+      }
+    ]
   }
 ]
