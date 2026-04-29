@@ -188,126 +188,15 @@ k6 v1.x runs TypeScript files directly — no build step needed. This replaces t
 
 ## Load Profiles
 
-### Local Test (debug)
-Single iteration, one scenario, extended logging. For development and troubleshooting.
+All profiles live in `tests/load/src/config/`. See the JSON files directly for current values.
 
-```json
-{
-  "scenarios": {
-    "health-check-local": {
-      "executor": "shared-iterations",
-      "exec": "healthCheck",
-      "iterations": 1,
-      "maxDuration": "1m"
-    }
-  }
-}
-```
-
-### Smoke Test
-Low rate, short duration. Validates scripts work and endpoints are reachable.
-
-```json
-{
-  "thresholds": {
-    "http_req_failed": ["rate<0.05"],
-    "checks": ["rate>0.95"],
-    "http_req_duration": ["p(95)<2000"]
-  },
-  "scenarios": {
-    "health-check-smoke": {
-      "exec": "healthCheck",
-      "executor": "constant-arrival-rate",
-      "rate": 2,
-      "timeUnit": "10s",
-      "preAllocatedVUs": 5,
-      "duration": "30s"
-    },
-    "data-flow-smoke": {
-      "exec": "dataFlow",
-      "executor": "constant-arrival-rate",
-      "rate": 1,
-      "timeUnit": "10s",
-      "preAllocatedVUs": 5,
-      "duration": "30s"
-    }
-  }
-}
-```
-
-### Load Test
-Sustained load at expected traffic levels. Ramps up, holds steady, ramps down.
-
-```json
-{
-  "thresholds": {
-    "http_req_failed": ["rate<0.05"],
-    "checks": ["rate>0.95"],
-    "http_req_duration": ["p(95)<2000"],
-    "http_req_duration{scenario:data-flow-load}": ["p(90)<500"]
-  },
-  "scenarios": {
-    "health-check-load": {
-      "exec": "healthCheck",
-      "executor": "ramping-arrival-rate",
-      "startRate": 1,
-      "timeUnit": "1s",
-      "preAllocatedVUs": 5,
-      "maxVUs": 50,
-      "stages": [
-        { "duration": "1m", "target": 5 },
-        { "duration": "3m", "target": 5 },
-        { "duration": "1m", "target": 0 }
-      ]
-    },
-    "data-flow-load": {
-      "exec": "dataFlow",
-      "executor": "ramping-arrival-rate",
-      "startRate": 1,
-      "timeUnit": "1s",
-      "preAllocatedVUs": 5,
-      "maxVUs": 50,
-      "stages": [
-        { "duration": "1m", "target": 3 },
-        { "duration": "3m", "target": 3 },
-        { "duration": "1m", "target": 0 }
-      ]
-    }
-  }
-}
-```
-
-Running health checks and data flow in parallel reveals whether the service-to-service hop (A → B via K8s DNS) adds meaningful latency compared to direct health checks.
-
-### Stress Test
-Push beyond limits. Find breaking points — at what concurrency do pods start throttling, error rates spike, or K8s networking degrades?
-
-```json
-{
-  "thresholds": {
-    "http_req_failed": ["rate<0.20"],
-    "http_req_duration": ["p(95)<5000"]
-  },
-  "scenarios": {
-    "data-flow-stress": {
-      "exec": "dataFlow",
-      "executor": "ramping-arrival-rate",
-      "startRate": 1,
-      "timeUnit": "1s",
-      "preAllocatedVUs": 10,
-      "maxVUs": 100,
-      "stages": [
-        { "duration": "1m", "target": 5 },
-        { "duration": "2m", "target": 15 },
-        { "duration": "2m", "target": 30 },
-        { "duration": "1m", "target": 0 }
-      ]
-    }
-  }
-}
-```
-
-Higher error tolerance (20%) and latency threshold (5s) — the point is finding the breaking point, not passing a gate. With tight resource limits (200m CPU, 128Mi memory), the infrastructure should hit its ceiling under stress.
+| Profile | File | Duration | Purpose |
+|---------|------|----------|---------|
+| Local | `local-test.json` | 1 iteration | Debug — verify scripts work |
+| Smoke | `smoke-test.json` | 30s | Correctness gate — endpoints alive? |
+| Regression | `regression-test.json` | ~3.5 min | Branch feedback — detect regressions |
+| Load | `load-test.json` | 5 min | Main baseline — sustained traffic |
+| Stress | `stress-test.json` | 6 min | Breaking points — manual only |
 
 ## Regression Analysis
 
@@ -360,31 +249,14 @@ Simple webhook POST — no Slack SDK, no bot framework.
 
 ## Dashboard & Long-Term Tracking
 
-### Phase 1: GitHub Actions artifacts + summary (MR 2)
-- `summary.json` uploaded as artifact after each run
-- Comparison rendered in GitHub Actions step summary (markdown table)
-- Artifacts expire after 90 days (GitHub default) — sufficient for regression detection
-- Zero infrastructure, zero cost
-
-### Phase 2: Committed baselines (MR 2)
-- Store baseline metrics in a committed JSON file (`tests/load/baseline.json`)
-- Regression script compares against committed baseline
-- Baseline updated manually when performance improves (ratchet pattern)
-- Version-controlled, auditable, permanent
-
-### Phase 3: Slack alerts (MR 3)
-- Webhook notifications on threshold violations
-- Channel becomes the team's performance feed
-- Extensible to chaos alerts, Pact failures, etc.
-
-### Phase 4: Custom dashboard + historical tracking (future)
-- After each load test, extraction script pulls key metrics from `summary.json` and appends to `tests/load/trend.json`
-- Only stores the numbers that matter (~6 metrics per run) — keeps storage minimal
-- Static dashboard (HTML + Chart.js on GitHub Pages) reads `trend.json` and plots trend lines
-- Permanent historical record in git, free hosting, zero infrastructure, no third-party dependency
-- No cloud dashboard needed — own the data, own the visualisation
-
-Not implementing now — need enough runs to see trends first. GitHub artifacts + Slack covers the feedback loop for MRs 1-3.
+All implemented:
+- `summary.json` uploaded as CI artifact after each run
+- Committed baseline (`tests/load/baseline.json`) with ratchet pattern
+- Slack webhook alerts on threshold violations (`scripts/notify/`)
+- Trend extraction scripts (`tests/load/scripts/extract-trend.ts`, `scripts/chaos/extract-trend.ts`)
+- Static HTML dashboard on GitHub Pages (`docs/dashboard/index.html`) with Chart.js
+- Artifact-as-database pattern: download previous → append → re-upload
+- Dashboard deployed on main only via `deploy-pages@v4`
 
 ---
 
@@ -392,125 +264,15 @@ Not implementing now — need enough runs to see trends first. GitHub artifacts 
 
 ### MR 1 — Framework scaffold + smoke test ✅
 
-**Goal:** Learn k6, get the framework running locally and in CI.
+Full 3-layer structure (requests → flows → scenarios), native k6 TypeScript, smoke test in CI. Established smoke baseline: p95 ~15ms, group_duration p95 ~26ms, 0% errors, 100% checks.
 
-**What was built:**
-- `tests/load/` directory with full 3-layer structure (requests → flows → scenarios)
-- Native k6 TypeScript (no webpack, no babel, no build step)
-- Request functions for Services A and B (health, ready, data, info)
-- Flow functions composing requests into reusable groups with `group()`
-- Three scenario types: `healthCheck` (isolated), `dataFlow` (isolated), `fullJourney` (chained)
-- Load profiles: `local-test.json`, `smoke-test.json`
-- `handleSummary` for JSON + text output
-- Logger utility (debug/info controlled by `__ENV.DEBUG`)
-- Request params helper (headers, transaction tags, timeout)
-- Type declarations for remote URL imports (`k6-libs.d.ts`)
-- npm scripts in root `package.json`: `test:load:local`, `test:load:smoke`
-- `tests/load/package.json` with `@types/k6` only
-- CI: k6 installed, smoke test runs after integration tests, before chaos
-- CI: `summary.json` uploaded as artifact
+### MR 2 — Load + stress profiles + regression analysis ✅
 
-**Design decisions made during implementation:**
-- Functional programming style throughout — arrow functions, no classes. Matches k6's own API
-- Isolated scenarios for baselines + chained journey for realistic traffic. Both are valuable: isolated tells you "how fast is this endpoint alone?", chained tells you "how does the system behave under realistic usage?"
-- `fail()` on check failure stops the VU iteration immediately — don't waste time on a broken system
-- `group()` in flows gives aggregated metrics per flow (`group_duration`), transaction tags on requests give per-endpoint metrics. Two levels of visibility
-- k6 requires `.ts` extensions on local imports (unlike Node.js/bundler setups). `allowImportingTsExtensions: true` in tsconfig suppresses IDE errors
+Load/stress/regression profiles, `compare-summary.ts` (10% threshold gate), committed baseline (`baseline.json`), branch-vs-main artifact comparison, GitHub Actions step summary.
 
-**Smoke baseline from first CI run (Kind cluster):**
-- `checks`: 100%
-- `http_req_failed`: 0%
-- `http_req_duration` p95: ~15ms
-- `group_duration` p95: ~26ms
+### MR 3 — Slack notifications + dashboard ✅
 
-**What we learned:**
-- k6 native TS is production-ready in v1.x — webpack is no longer needed
-- `group_duration` is the business-level metric (closer to real user experience than individual HTTP calls)
-- Smoke baselines are about regression detection, not capacity — stable, tight, low variance numbers are the foundation for heavier load tests
-
----
-
-### MR 2 — Load + stress profiles + regression analysis
-
-**Goal:** Add real load profiles and automated regression detection with branch-vs-main comparison.
-
-**What changes:**
-- Load profiles: `load-test.json`, `stress-test.json`
-- npm scripts: `test:load:load`, `test:load:stress`
-- `scripts/compare-summary.ts` — regression analysis (10% threshold, 3 metrics: throughput, p90 latency, error rate)
-- GitHub Actions: upload `summary.json` as artifact after every load test
-- GitHub Actions: download previous main artifact on feature branches, compare
-- GitHub Actions step summary with markdown comparison table (✅/⚠️ per metric)
-- Committed baseline file (`tests/load/baseline.json`) — initial baseline from first run, updated manually (ratchet pattern)
-
-**Branch-vs-main comparison (adapted regression test pattern):**
-
-A common approach is to run the same profile against branch and main deployments in parallel. We can't do that in a single Kind cluster, so the adaptation is:
-
-1. Main branch: run load test → upload `summary.json` as artifact → update committed baseline if improved
-2. Feature branches: run load test → download main's latest `summary.json` artifact → compare
-3. First run: no previous artifact → skip comparison with warning, establish baseline
-
-The regression script compares:
-- `http_reqs.rate` — throughput drop > 10% = regression
-- `http_req_duration.p(90)` — latency increase > 10% = regression
-- `http_req_failed.rate` — error rate increase > 10% = regression
-
-Output format (rendered in step summary):
-```
-✅ http_reqs rate:           12.50 req/s → 12.10 req/s (-3.20%)
-⚠️ http_req_duration p90:   150.00 ms → 210.00 ms (+40.00%)
-✅ http_req_failed:          0.50% → 0.80% (+60.00%)
-```
-
-**CI integration:**
-- Smoke test on every push (already from MR 1)
-- Load test on every push (feature branches compare against main's artifact)
-- Load test on main branch records the new baseline artifact
-- Regression analysis runs after load test — exits non-zero on threshold breach
-- Stress test: manual trigger only (workflow_dispatch) — too slow for every push
-
-**What we learn:**
-- Load profile design (ramping, sustained, cool-down)
-- Regression detection patterns (relative comparison, not just absolute thresholds)
-- GitHub Actions artifact download/comparison across workflow runs
-- Baseline management (committed file vs CI artifacts)
-- Branch-vs-main comparison without parallel deployments
-
-**Acceptance criteria:**
-- Load test runs on every push, produces summary.json
-- On main: summary.json uploaded as artifact + baseline updated
-- On feature branches: previous main artifact downloaded, comparison runs
-- Regression script exits non-zero if any metric exceeds 10% threshold
-- Step summary shows markdown comparison table
-- First run without baseline passes with warning
-- Stress test runnable on-demand via workflow_dispatch
-
----
-
-### MR 3 — Slack notifications + monitoring
-
-**Goal:** Wire up Slack for alerts, close the feedback loop.
-
-**What changes:**
-- Personal Slack workspace setup (documented in this file)
-- `tests/load/scripts/slack-notify.ts` — webhook POST on threshold violation
-- GitHub Secrets: `SLACK_WEBHOOK_URL`
-- CI: Slack notification step after regression analysis
-- Extend to chaos experiment failures (optional)
-- Update docs with Slack setup instructions
-
-**What we learn:**
-- Slack Incoming Webhooks setup
-- Webhook integration in CI
-- Alert formatting and routing
-- Extending notifications to other pipeline stages
-
-**Acceptance criteria:**
-- Threshold violation sends Slack message with metrics comparison
-- Pass result does NOT send message (alert fatigue)
-- Webhook URL stored as GitHub Secret, not in code
-- Documented setup steps for recreating the Slack workspace
+Slack webhook alerts (perf regression, chaos failure, smoke failure), reusable `scripts/notify/slack.ts`, trend extraction (perf + chaos), static HTML dashboard on GitHub Pages, artifact-as-database pattern.
 
 ---
 
@@ -652,15 +414,12 @@ This is also where Service C could appear in load testing — not testing the LL
 - Node.js (for `@types/k6` IDE support)
 - Services running locally (`npm run dev`) or Kind cluster deployed
 
-### Commands (after MR 1)
+### Commands
 ```bash
 npm run test:load:local            # single iteration, debug logging
 npm run test:load:smoke            # smoke test against local services
-```
-
-### Commands (after MR 2)
-```bash
-npm run test:load                  # sustained load test
-npm run test:stress                # stress test (find breaking points)
-npm run analyze                    # compare summary.json against baseline
+npm run test:load:regression       # 3.5 min regression test
+npm run test:load:load             # 5 min full load test
+npm run test:load:stress           # stress test (find breaking points)
+npm run test:load:analyze          # compare summary.json against baseline
 ```

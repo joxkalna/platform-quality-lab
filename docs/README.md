@@ -50,8 +50,15 @@
 | Doc | What it covers |
 |-----|---------------|
 | [llmops/testing-strategy.md](llmops/testing-strategy.md) | LLM evaluation, observability, quality patterns |
+| [llmops/phase7-plan.md](llmops/phase7-plan.md) | Phase 7 implementation plan — golden sets, accuracy gates, consistency tests |
 
 ## Roadmap
 | Doc | What it covers |
 |-----|---------------|
 | [roadmap/phase9-ui-frontend-quality.md](roadmap/phase9-ui-frontend-quality.md) | Phase 9 plan — React UI, Pact, Lighthouse CI, k6 browser, Playwright E2E |
+
+## Reference
+| Doc | What it covers |
+|-----|---------------|
+| [project-reference.md](project-reference.md) | Phases 1–5 details — Pact architecture, chaos experiments, infrastructure decisions |
+| [phase6-reference.md](phase6-reference.md) | Phase 6 details — Pact exercises, k6 MRs, observability patterns |

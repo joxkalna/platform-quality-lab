@@ -156,17 +156,12 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
-
-      - name: Download dashboard data
-        uses: actions/download-artifact@v7
         with:
-          name: dashboard-data
-          path: docs/dashboard/
+          ref: main
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          overwrite: true
           path: docs/dashboard/
 
       - name: Deploy to GitHub Pages

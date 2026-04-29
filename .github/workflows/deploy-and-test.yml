@@ -20,6 +20,8 @@ on:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
@@ -251,16 +253,9 @@ jobs:
           if-no-files-found: ignore
 
       # --- Dashboard trend data ---
-      # Pattern: download previous artifact → append new entry → re-upload.
-      # Artifact is the "database" — accumulates one entry per main pipeline run.
-      # GitHub REST API used directly (no third-party actions).
-
-      - name: Download previous trend data
-        if: always() && github.ref == 'refs/heads/main'
-        continue-on-error: true
-        run: bash scripts/dashboard/download-trend.sh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Pattern: extract metrics → commit trend JSON back to repo.
+      # Git is the database — one commit per main pipeline run.
+      # [skip ci] prevents infinite loop.
 
       - name: Extract performance trend
         if: always() && github.ref == 'refs/heads/main'
@@ -272,15 +267,15 @@ jobs:
         continue-on-error: true
         run: npm run trend:chaos
 
-      - name: Upload dashboard data
+      - name: Commit dashboard data
         if: always() && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v7
-        with:
-          name: dashboard-data
-          path: |
-            docs/dashboard/trend.json
-            docs/dashboard/chaos-trend.json
-          if-no-files-found: ignore
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json
+          git diff --cached --quiet || git commit -m "chore: update dashboard data [skip ci]"
+          git push
 
       # --- Teardown ---
 

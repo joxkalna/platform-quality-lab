@@ -137,14 +137,10 @@ Tests without assertions or comparison are considered **exploratory**, not gatin
 
 ## Baseline Evolution
 
-These thresholds are initial values based on:
+Thresholds are based on:
 - Phase 2 resource baseline (idle: 1-13m CPU, 11-15Mi memory per pod)
 - Service architecture (Express pass-throughs, no business logic)
 - Kind cluster constraints (200m CPU limit, 128Mi memory limit, 2 replicas)
-
-They will evolve as:
-- MR 1 produces first real measurements (may need to loosen or tighten)
-- Stress tests reveal actual breaking points
-- Services gain complexity (Phase 7 LLMOps, Phase 8 Bruno)
+- First load test run on Kind CI (p90: 3.86ms, rate: 20 req/s, 0% errors)
 
 When updating thresholds, commit the change with a message explaining why — the git history becomes the performance decision log.
