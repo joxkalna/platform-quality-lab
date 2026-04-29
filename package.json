@@ -26,7 +26,8 @@
     "test:load:regression": "cd tests/load && k6 run src/index.ts --config src/config/regression-test.json",
     "test:load:load": "cd tests/load && k6 run src/index.ts --config src/config/load-test.json",
     "test:load:stress": "cd tests/load && k6 run src/index.ts --config src/config/stress-test.json",
-    "test:load:analyze": "cd tests/load && npx tsx scripts/compare-summary.ts"
+    "test:load:analyze": "cd tests/load && npx tsx scripts/compare-summary.ts",
+    "test:load:notify": "npx tsx scripts/notify/perf-regression.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

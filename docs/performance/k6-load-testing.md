@@ -377,13 +377,14 @@ Simple webhook POST — no Slack SDK, no bot framework.
 - Channel becomes the team's performance feed
 - Extensible to chaos alerts, Pact failures, etc.
 
-### Phase 4: Cloud dashboards (future — post Phase 7)
-- k6 supports native cloud output for real-time dashboards
-- Free tier: 10k metrics, 50GB logs, 14-day retention
-- Real dashboards, trend lines, alerting
-- The JSON baselines in git remain the permanent record — cloud dashboards are the live view
+### Phase 4: Custom dashboard + historical tracking (future)
+- After each load test, extraction script pulls key metrics from `summary.json` and appends to `tests/load/trend.json`
+- Only stores the numbers that matter (~6 metrics per run) — keeps storage minimal
+- Static dashboard (HTML + Chart.js on GitHub Pages) reads `trend.json` and plots trend lines
+- Permanent historical record in git, free hosting, zero infrastructure, no third-party dependency
+- No cloud dashboard needed — own the data, own the visualisation
 
-Not implementing cloud dashboards now — it's infrastructure overhead that doesn't add learning value until we have enough runs to see trends. GitHub artifacts + Slack covers the feedback loop for MRs 1-3.
+Not implementing now — need enough runs to see trends first. GitHub artifacts + Slack covers the feedback loop for MRs 1-3.
 
 ---
 

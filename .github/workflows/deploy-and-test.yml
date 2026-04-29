@@ -145,12 +145,21 @@ jobs:
           sudo mv k6-v1.0.0-linux-amd64/k6 /usr/local/bin/k6
 
       - name: Run k6 smoke test
+        id: smoke
         run: |
           kubectl port-forward svc/service-a 3000:3000 &
           kubectl port-forward svc/service-b 3001:3001 &
           sleep 3
           mkdir -p tests/load/results
           npm run test:load:smoke
+
+      - name: Slack — notify on smoke failure
+        if: failure() && steps.smoke.outcome == 'failure'
+        continue-on-error: true
+        run: npx tsx scripts/notify/smoke-failure.ts
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          EXIT_CODE: "1"
 
       - name: Upload k6 results
         if: always()
@@ -182,6 +191,12 @@ jobs:
       - name: Run k6 regression analysis
         continue-on-error: true
         run: npm run test:load:analyze
+
+      - name: Slack — notify on regression
+        continue-on-error: true
+        run: npx tsx scripts/notify/perf-regression.ts
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Upload k6 load results
         if: always()
@@ -219,6 +234,13 @@ jobs:
       - name: Chaos experiment summary
         if: always() && github.ref == 'refs/heads/main'
         run: npx tsx scripts/chaos/render-summary.ts >> $GITHUB_STEP_SUMMARY
+
+      - name: Slack — notify on chaos failure
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: npx tsx scripts/notify/chaos-failure.ts
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Upload chaos reports
         if: always() && github.ref == 'refs/heads/main'
