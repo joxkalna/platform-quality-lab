@@ -6,4 +6,4 @@ pacts/
 logs/
 scripts/chaos/reports/
 tests/load/results/
-docs/dashboard/*.json
+
