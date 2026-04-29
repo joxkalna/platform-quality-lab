@@ -138,6 +138,8 @@ jobs:
   deploy-and-test:
     needs: [lint, typecheck, validate-k8s, pact]
     if: "!failure() && !cancelled()"
+    permissions:
+      contents: write
     uses: ./.github/workflows/deploy-and-test.yml
     with:
       node-version: "24"
