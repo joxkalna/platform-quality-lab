@@ -143,3 +143,31 @@ jobs:
       node-version: "24"
       kind-version: "v0.27.0"
     secrets: inherit
+
+  deploy-dashboard:
+    needs: deploy-and-test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download dashboard data
+        uses: actions/download-artifact@v7
+        with:
+          name: dashboard-data
+          path: docs/dashboard/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/dashboard/
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

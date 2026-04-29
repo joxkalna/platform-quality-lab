@@ -26,7 +26,11 @@
     "test:load:regression": "cd tests/load && k6 run src/index.ts --config src/config/regression-test.json",
     "test:load:load": "cd tests/load && k6 run src/index.ts --config src/config/load-test.json",
     "test:load:stress": "cd tests/load && k6 run src/index.ts --config src/config/stress-test.json",
-    "test:load:analyze": "cd tests/load && npx tsx scripts/compare-summary.ts"
+    "test:load:analyze": "cd tests/load && npx tsx scripts/compare-summary.ts",
+    "test:load:notify": "npx tsx scripts/notify/perf-regression.ts",
+    "trend:perf": "npx tsx tests/load/scripts/extract-trend.ts",
+    "trend:chaos": "npx tsx scripts/chaos/extract-trend.ts",
+    "dashboard": "cd docs/dashboard && python3 -m http.server 8080 & sleep 1 && open http://localhost:8080 && echo 'Dashboard at http://localhost:8080 — Ctrl+C to stop' && wait"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
