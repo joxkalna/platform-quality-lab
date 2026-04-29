@@ -169,6 +169,24 @@ jobs:
           path: tests/load/results/
           if-no-files-found: ignore
 
+      # --- LLMOps evaluation (golden set accuracy gate) ---
+
+      - name: Run LLMOps golden set evaluation
+        id: llmops
+        run: |
+          kubectl port-forward svc/service-c 3002:3002 &
+          sleep 3
+          mkdir -p tests/llmops/results
+          SERVICE_C_URL=http://localhost:3002 npm run test:llmops
+
+      - name: Upload LLMOps results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: llmops-results
+          path: tests/llmops/results/
+          if-no-files-found: ignore
+
       # --- k6 performance tests (non-blocking, regression detection) ---
       # Branches: regression test (~3.5 min) — fast feedback before merge
       # Main: full load test (5 min) — proper data, historical trend
