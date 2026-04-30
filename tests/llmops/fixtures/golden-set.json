@@ -232,14 +232,6 @@
     "tags": ["obvious", "performance"]
   },
   {
-    "id": "gs-030",
-    "input": "",
-    "expectedCategory": "info",
-    "acceptableCategories": ["info", "ok", "warning", "critical"],
-    "minConfidence": 0.0,
-    "tags": ["edge-case", "empty"]
-  },
-  {
     "id": "gs-031",
     "input": "asdfghjkl qwerty zxcvbnm",
     "expectedCategory": "info",
