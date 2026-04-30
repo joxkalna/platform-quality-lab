@@ -8,9 +8,16 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; padding: 2rem; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
     .top-bar h1 { font-size: 1.5rem; }
-    .time-picker { display: flex; gap: 0.25rem; }
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; }
+    .tabs button {
+      background: #21262d; border: 1px solid #30363d; color: #8b949e;
+      padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+    }
+    .tabs button:hover { border-color: #58a6ff; color: #e6edf3; }
+    .tabs button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+    .time-picker { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; }
     .time-picker button {
       background: #21262d; border: 1px solid #30363d; color: #8b949e;
       padding: 0.4rem 0.75rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
@@ -18,62 +25,110 @@
     .time-picker button:hover { border-color: #58a6ff; color: #e6edf3; }
     .time-picker button.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
     .subtitle { color: #8b949e; margin-bottom: 1.5rem; font-size: 0.85rem; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
     .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; }
     .card h2 { font-size: 0.9rem; margin-bottom: 1rem; color: #8b949e; font-weight: 500; }
     .card canvas { width: 100% !important; height: 200px !important; }
     .full-width { grid-column: 1 / -1; }
-    .chaos-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-    .chaos-table th, .chaos-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #21262d; }
-    .chaos-table th { color: #8b949e; font-weight: 500; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .data-table th, .data-table td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #21262d; }
+    .data-table th { color: #8b949e; font-weight: 500; }
     .pass { color: #3fb950; }
     .fail { color: #f85149; }
     .empty { color: #8b949e; text-align: center; padding: 2rem; }
+    .truncate { max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <div class="top-bar">
     <h1>Platform Quality Lab</h1>
-    <div class="time-picker">
-      <button data-days="7">7d</button>
-      <button data-days="14">14d</button>
-      <button data-days="30" class="active">30d</button>
-      <button data-days="90">90d</button>
-      <button data-days="0">All</button>
-    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="active" data-tab="performance">Performance</button>
+    <button data-tab="chaos">Chaos</button>
+    <button data-tab="llmops">LLMOps</button>
+  </div>
+
+  <div class="time-picker">
+    <button data-days="7">7d</button>
+    <button data-days="14">14d</button>
+    <button data-days="30" class="active">30d</button>
+    <button data-days="90">90d</button>
+    <button data-days="0">All</button>
   </div>
   <p class="subtitle" id="rangeLabel">Showing last 30 days</p>
 
-  <div class="grid">
-    <div class="card">
-      <h2>Response Time — p90 / p95 (ms)</h2>
-      <canvas id="latencyChart"></canvas>
+  <!-- Performance Tab -->
+  <div class="tab-content active" id="tab-performance">
+    <div class="grid">
+      <div class="card">
+        <h2>Response Time — p90 / p95 (ms)</h2>
+        <canvas id="latencyChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>Requests Handled Per Second</h2>
+        <canvas id="throughputChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>Failed Requests (%)</h2>
+        <canvas id="errorChart"></canvas>
+      </div>
     </div>
-    <div class="card">
-      <h2>Requests Handled Per Second</h2>
-      <canvas id="throughputChart"></canvas>
+  </div>
+
+  <!-- Chaos Tab -->
+  <div class="tab-content" id="tab-chaos">
+    <div class="grid">
+      <div class="card full-width">
+        <h2>Chaos Experiment Pass Rate</h2>
+        <canvas id="chaosChart"></canvas>
+      </div>
+      <div class="card full-width">
+        <h2>Chaos Experiment History</h2>
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Branch</th><th>Result</th><th>Experiments</th></tr></thead>
+          <tbody id="chaosTable"></tbody>
+        </table>
+      </div>
     </div>
-    <div class="card">
-      <h2>Failed Requests (%)</h2>
-      <canvas id="errorChart"></canvas>
-    </div>
-    <div class="card">
-      <h2>Chaos Experiment Pass Rate</h2>
-      <canvas id="chaosChart"></canvas>
-    </div>
-    <div class="card full-width">
-      <h2>Chaos Experiment History</h2>
-      <table class="chaos-table">
-        <thead><tr><th>Date</th><th>Branch</th><th>Result</th><th>Experiments</th></tr></thead>
-        <tbody id="chaosTable"></tbody>
-      </table>
+  </div>
+
+  <!-- LLMOps Tab -->
+  <div class="tab-content" id="tab-llmops">
+    <div class="grid">
+      <div class="card">
+        <h2>Accuracy Over Time</h2>
+        <canvas id="llmAccuracyChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>Per-Category Accuracy (Latest Run)</h2>
+        <canvas id="llmCategoryChart"></canvas>
+      </div>
+      <div class="card full-width">
+        <h2>Evaluation History</h2>
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Branch</th><th>Model</th><th>Accuracy</th><th>Passed</th><th>Failures</th></tr></thead>
+          <tbody id="llmHistoryTable"></tbody>
+        </table>
+      </div>
+      <div class="card full-width">
+        <h2>Failures (Latest Run)</h2>
+        <table class="data-table">
+          <thead><tr><th>Case ID</th><th>Input</th><th>Expected</th><th>Actual</th></tr></thead>
+          <tbody id="llmFailuresTable"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <script>
     let perfData = [];
     let chaosData = [];
+    let llmopsData = [];
     let charts = {};
     let selectedDays = 30;
 
@@ -102,12 +157,10 @@
     }
 
     function renderPerf(data) {
-      const canvas = document.getElementById('latencyChart');
       if (data.length === 0) return;
-
       const labels = data.map(d => d.date);
 
-      charts.latency = new Chart(canvas, {
+      charts.latency = new Chart(document.getElementById('latencyChart'), {
         type: 'line',
         data: {
           labels,
@@ -169,16 +222,107 @@
       }).join('');
     }
 
+    function renderLLMOps(data) {
+      const historyTbody = document.getElementById('llmHistoryTable');
+      const failuresTbody = document.getElementById('llmFailuresTable');
+
+      if (data.length === 0) {
+        historyTbody.innerHTML = '<tr><td colspan="6" class="empty">No LLMOps data in this range.</td></tr>';
+        failuresTbody.innerHTML = '<tr><td colspan="4" class="empty">No data.</td></tr>';
+        return;
+      }
+
+      // Accuracy over time
+      const labels = data.map(d => `${d.date} (${d.branch})`);
+      charts.llmAccuracy = new Chart(document.getElementById('llmAccuracyChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'accuracy %',
+            data: data.map(d => (d.accuracy * 100)),
+            borderColor: '#58a6ff',
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: data.map(d => d.branch === 'main' ? '#3fb950' : '#f78166'),
+          }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 100, title: { display: true, text: '%', color: '#8b949e' } } } },
+      });
+
+      // Per-category (latest run)
+      const latest = data[data.length - 1];
+      const categories = Object.keys(latest.perCategory);
+      charts.llmCategory = new Chart(document.getElementById('llmCategoryChart'), {
+        type: 'bar',
+        data: {
+          labels: categories,
+          datasets: [{
+            label: 'accuracy %',
+            data: categories.map(c => (latest.perCategory[c].accuracy * 100)),
+            backgroundColor: categories.map(c => {
+              const acc = latest.perCategory[c].accuracy;
+              if (acc >= 0.8) return '#3fb950';
+              if (acc >= 0.6) return '#f78166';
+              return '#f85149';
+            }),
+          }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 100, title: { display: true, text: '%', color: '#8b949e' } } } },
+      });
+
+      // History table
+      historyTbody.innerHTML = data.slice().reverse().map(d => {
+        const accPct = (d.accuracy * 100).toFixed(1);
+        const accClass = d.accuracy >= 0.8 ? 'pass' : d.accuracy >= 0.6 ? '' : 'fail';
+        const failCount = d.failures.length;
+        return `<tr>
+          <td>${d.date}</td>
+          <td>${d.branch}</td>
+          <td>${d.model}</td>
+          <td class="${accClass}">${accPct}%</td>
+          <td>${d.passed}/${d.totalCases}</td>
+          <td class="${failCount > 0 ? 'fail' : 'pass'}">${failCount}</td>
+        </tr>`;
+      }).join('');
+
+      // Failures table (latest run)
+      if (latest.failures.length === 0) {
+        failuresTbody.innerHTML = '<tr><td colspan="4" class="pass" style="text-align:center;padding:1rem;">No failures — all cases passed ✓</td></tr>';
+      } else {
+        failuresTbody.innerHTML = latest.failures.map(f =>
+          `<tr>
+            <td>${f.id}</td>
+            <td class="truncate" title="${f.input}">${f.input}</td>
+            <td>${f.expected}</td>
+            <td class="fail">${f.actual}</td>
+          </tr>`
+        ).join('');
+      }
+    }
+
     function render() {
       destroyCharts();
       const filteredPerf = filterByDays(perfData, selectedDays);
       const filteredChaos = filterByDays(chaosData, selectedDays);
+      const filteredLLMOps = filterByDays(llmopsData, selectedDays);
       renderPerf(filteredPerf);
       renderChaos(filteredChaos);
+      renderLLMOps(filteredLLMOps);
 
       const label = selectedDays === 0 ? 'Showing all data' : `Showing last ${selectedDays} days`;
       document.getElementById('rangeLabel').textContent = label;
     }
+
+    // Tab switching
+    document.querySelectorAll('.tabs button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelector('.tabs .active').classList.remove('active');
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+      });
+    });
 
     // Time picker
     document.querySelectorAll('.time-picker button').forEach(btn => {
@@ -198,9 +342,10 @@
       } catch { return []; }
     }
 
-    Promise.all([load('trend.json'), load('chaos-trend.json')]).then(([perf, chaos]) => {
+    Promise.all([load('trend.json'), load('chaos-trend.json'), load('llmops-trend.json')]).then(([perf, chaos, llmops]) => {
       perfData = perf;
       chaosData = chaos;
+      llmopsData = llmops;
       render();
     });
   </script>

@@ -86,6 +86,16 @@ Plan: `docs/llmops/phase7-plan.md`
 - `failIfNoPactsFound: false`, `enablePending: true`
 - Full docs: `docs/pact/`
 
+## Test Structure
+Test directories follow this layout — test files contain only assertions, helpers live in `utils/`, test data in `fixtures/`:
+```
+tests/<domain>/
+├── utils/       ← API clients, loaders, result aggregation
+├── fixtures/    ← test data (golden sets, payloads)
+├── results/     ← generated output (gitignored)
+└── *.test.ts    ← assertions only
+```
+
 ## Coding Style
 - Follow `docs/typescript-style-guide.md` for all TypeScript code
 - Production-grade patterns, simple services

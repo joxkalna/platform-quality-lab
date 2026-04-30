@@ -169,6 +169,24 @@ jobs:
           path: tests/load/results/
           if-no-files-found: ignore
 
+      # --- LLMOps evaluation (golden set accuracy gate) ---
+
+      - name: Run LLMOps golden set evaluation
+        id: llmops
+        run: |
+          kubectl port-forward svc/service-c 3002:3002 &
+          sleep 3
+          mkdir -p tests/llmops/results
+          SERVICE_C_URL=http://localhost:3002 npm run test:llmops
+
+      - name: Upload LLMOps results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: llmops-results
+          path: tests/llmops/results/
+          if-no-files-found: ignore
+
       # --- k6 performance tests (non-blocking, regression detection) ---
       # Branches: regression test (~3.5 min) — fast feedback before merge
       # Main: full load test (5 min) — proper data, historical trend
@@ -265,13 +283,18 @@ jobs:
         continue-on-error: true
         run: npm run trend:chaos
 
+      - name: Extract LLMOps trend
+        if: always()
+        continue-on-error: true
+        run: npm run trend:llmops
+
       - name: Commit dashboard data
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json
+          git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json docs/dashboard/llmops-trend.json
           git diff --cached --quiet || git commit -m "chore: update dashboard data [skip ci]"
           git push
 
