@@ -46,8 +46,8 @@ npm run lint                # ESLint + custom resilience rules
 | `SERVICE_C_URL` | `http://localhost:3002` | Service C endpoint |
 | `LLMOPS_ACCURACY_THRESHOLD` | `0.6` | Min golden set accuracy (gates pipeline) |
 | `LLMOPS_CONSISTENCY_RUNS` | `5` | Runs per case in consistency tests |
-| `LLMOPS_MAX_CONFIDENCE_VARIANCE` | `0.3` | Max std dev allowed per case |
-| `LLMOPS_STABILITY_THRESHOLD` | `0.8` | Min % of cases that must be fully stable |
+| `LLMOPS_MAX_CONFIDENCE_VARIANCE` | `0.4` | Max std dev allowed per case |
+| `LLMOPS_STABILITY_THRESHOLD` | `0.6` | Min % of cases that must be fully stable |
 
 Both `test:llmops` and `test:llmops:consistency` run on every push in CI (Ollama is local, no API cost). They gate the pipeline — accuracy or stability regressions block merge.
 

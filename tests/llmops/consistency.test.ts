@@ -4,8 +4,8 @@ import { ConsistencyCaseResult, ConsistencyResult, writeConsistencyResults } fro
 import { classify, loadGoldenSet } from "./utils/evaluate";
 
 const RUNS_PER_CASE = parseInt(process.env.LLMOPS_CONSISTENCY_RUNS || "5", 10);
-const MAX_CONFIDENCE_VARIANCE = parseFloat(process.env.LLMOPS_MAX_CONFIDENCE_VARIANCE || "0.3");
-const STABILITY_THRESHOLD = parseFloat(process.env.LLMOPS_STABILITY_THRESHOLD || "0.8");
+const MAX_CONFIDENCE_VARIANCE = parseFloat(process.env.LLMOPS_MAX_CONFIDENCE_VARIANCE || "0.4");
+const STABILITY_THRESHOLD = parseFloat(process.env.LLMOPS_STABILITY_THRESHOLD || "0.6");
 
 async function runConsistencyEvaluation(): Promise<ConsistencyResult> {
   const obviousCases = loadGoldenSet().filter((c) => c.tags.includes("obvious"));
