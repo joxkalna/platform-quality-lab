@@ -283,13 +283,18 @@ jobs:
         continue-on-error: true
         run: npm run trend:chaos
 
+      - name: Extract LLMOps trend
+        if: always()
+        continue-on-error: true
+        run: npm run trend:llmops
+
       - name: Commit dashboard data
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json
+          git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json docs/dashboard/llmops-trend.json
           git diff --cached --quiet || git commit -m "chore: update dashboard data [skip ci]"
           git push
 

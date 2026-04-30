@@ -206,6 +206,12 @@ Playwright runs the assertions — it's already interacting with the UI, so addi
 
 ## MR Breakdown
 
+### MR 0 — Dashboard refactor
+- Extract inline JS/CSS from `docs/dashboard/index.html` into separate files
+- Split chart rendering into modules (perf, chaos, llmops) for readability
+- Consider lightweight bundler (Vite) or keep vanilla with ES modules
+- Goal: the dashboard HTML is growing (tabs, charts, tables) — make it maintainable before adding more
+
 ### MR 1 — UI scaffold + deploy to Kind
 - Minimal React app (text input, classify button, result display)
 - Dockerfile (multi-stage: build with node, serve with nginx)
