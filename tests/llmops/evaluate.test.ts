@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { loadGoldenSet, evaluateGoldenSet, writeResults, EvaluationResult } from "./evaluate";
+import { loadGoldenSet, evaluateGoldenSet, writeResults, EvaluationResult } from "./utils/evaluate";
+import { VALID_CATEGORIES, Category } from "../../services/service-c/src/types";
 
 const ACCURACY_THRESHOLD = parseFloat(process.env.LLMOPS_ACCURACY_THRESHOLD || "0.6");
-const VALID_CATEGORIES = ["critical", "warning", "info", "ok"];
 
 describe("LLMOps — Golden Set Evaluation", () => {
   let evaluation: EvaluationResult;
@@ -18,10 +18,10 @@ describe("LLMOps — Golden Set Evaluation", () => {
     ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLD);
   });
 
-  it("all responses have valid structure", () => {
-    for (const f of evaluation.failures) {
-      if (f.actual === "ERROR") continue;
-      expect(VALID_CATEGORIES).toContain(f.actual);
-    }
+  it("no responses contain hallucinated categories", () => {
+    const hallucinations = evaluation.failures.filter(
+      f => !VALID_CATEGORIES.includes(f.actual as Category)
+    );
+    expect(hallucinations).toHaveLength(0);
   });
 });

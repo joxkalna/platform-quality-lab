@@ -1,55 +1,15 @@
 import { readFileSync, mkdirSync, writeFileSync } from "fs";
 import path from "path";
+import type { ClassificationResult } from "../../../services/service-c/src/types";
+import type { GoldenCase, CaseResult, EvaluationResult, CategoryStats } from "./types";
 
-// --- Types ---
-
-export interface GoldenCase {
-  id: string;
-  input: string;
-  expectedCategory: string;
-  acceptableCategories: string[];
-  minConfidence: number;
-  tags: string[];
-}
-
-export interface ClassifyResponse {
-  category: string;
-  confidence: number;
-  model: string;
-}
-
-export interface CaseResult {
-  id: string;
-  input: string;
-  expected: string;
-  acceptable: string[];
-  actual: string;
-  confidence: number;
-  pass: boolean;
-  tags: string[];
-}
-
-export interface CategoryStats {
-  total: number;
-  passed: number;
-  accuracy: number;
-}
-
-export interface EvaluationResult {
-  timestamp: string;
-  model: string;
-  totalCases: number;
-  passed: number;
-  accuracy: number;
-  perCategory: Record<string, CategoryStats>;
-  failures: CaseResult[];
-}
+export type { GoldenCase, CaseResult, EvaluationResult, CategoryStats };
 
 // --- Config ---
 
 const SERVICE_C_URL = process.env.SERVICE_C_URL || "http://localhost:3002";
-const RESULTS_DIR = path.resolve(__dirname, "results");
-const FIXTURES_DIR = path.resolve(__dirname, "fixtures");
+const RESULTS_DIR = path.resolve(__dirname, "..", "results");
+const FIXTURES_DIR = path.resolve(__dirname, "..", "fixtures");
 
 // --- Core ---
 
@@ -57,7 +17,7 @@ export function loadGoldenSet(): GoldenCase[] {
   return JSON.parse(readFileSync(path.join(FIXTURES_DIR, "golden-set.json"), "utf-8"));
 }
 
-export async function classify(text: string): Promise<ClassifyResponse> {
+export async function classify(text: string): Promise<ClassificationResult> {
   const res = await fetch(`${SERVICE_C_URL}/classify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -68,7 +28,7 @@ export async function classify(text: string): Promise<ClassifyResponse> {
     throw new Error(`/classify returned ${res.status}: ${await res.text()}`);
   }
 
-  return res.json() as Promise<ClassifyResponse>;
+  return res.json() as Promise<ClassificationResult>;
 }
 
 export async function evaluateGoldenSet(cases: GoldenCase[]): Promise<EvaluationResult> {
