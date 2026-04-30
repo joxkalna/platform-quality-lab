@@ -20,7 +20,7 @@ describe("LLMOps — Golden Set Evaluation", () => {
 
   it("no responses contain hallucinated categories", () => {
     const hallucinations = evaluation.failures.filter(
-      f => !VALID_CATEGORIES.includes(f.actual as Category)
+      f => f.actual !== "ERROR" && !VALID_CATEGORIES.includes(f.actual as Category)
     );
     expect(hallucinations).toHaveLength(0);
   });

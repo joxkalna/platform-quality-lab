@@ -15,6 +15,7 @@ interface LLMOpsTrendEntry {
   accuracy: number;
   perCategory: Record<string, { total: number; passed: number; accuracy: number }>;
   failures: { id: string; input: string; expected: string; actual: string }[];
+  rejections: { count: number; caseIds: string[] };
 }
 
 const evaluationFile = resolve(process.cwd(), "tests", "llmops", "results", "evaluation.json");
@@ -26,6 +27,10 @@ if (!existsSync(evaluationFile)) {
 }
 
 const evaluation = JSON.parse(readFileSync(evaluationFile, "utf-8"));
+
+const rejectedCases = evaluation.failures.filter(
+  (f: { actual: string }) => f.actual === "ERROR"
+);
 
 const entry: LLMOpsTrendEntry = {
   date: new Date().toISOString().split("T")[0],
@@ -41,6 +46,10 @@ const entry: LLMOpsTrendEntry = {
     expected: f.expected,
     actual: f.actual,
   })),
+  rejections: {
+    count: rejectedCases.length,
+    caseIds: rejectedCases.map((f: { id: string }) => f.id),
+  },
 };
 
 const trend: LLMOpsTrendEntry[] = existsSync(trendFile)
@@ -50,4 +59,4 @@ const trend: LLMOpsTrendEntry[] = existsSync(trendFile)
 trend.push(entry);
 
 writeFileSync(trendFile, JSON.stringify(trend, null, 2));
-console.log(`✅ LLMOps trend updated: ${trend.length} entries (accuracy: ${(entry.accuracy * 100).toFixed(1)}%, model: ${entry.model})`);
+console.log(`✅ LLMOps trend updated: ${trend.length} entries (accuracy: ${(entry.accuracy * 100).toFixed(1)}%, model: ${entry.model}, rejections: ${entry.rejections.count})`);
