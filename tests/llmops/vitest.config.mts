@@ -5,7 +5,10 @@ export default defineConfig({
   test: {
     globals: true,
     testTimeout: 300_000, // 5 min — full golden set against Ollama is slow
-    include: [path.resolve(__dirname, "evaluate.test.ts")],
+    include: [
+      path.resolve(__dirname, "evaluate.test.ts"),
+      path.resolve(__dirname, "consistency.test.ts"),
+    ],
     reporters: ["default"],
     coverage: { enabled: false },
   },

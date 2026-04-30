@@ -32,10 +32,24 @@ npm run test:load:smoke     # k6 smoke test (30s, validates endpoints)
 npm run test:load:regression # k6 regression test (3.5 min, branch feedback)
 npm run test:load:load      # k6 load test (5 min, main baseline)
 npm run test:load:stress    # k6 stress test (find breaking points)
-npm run test:load:analyze   # compare results against baseline
+npm run test:llmops             # LLMOps full suite (golden set + consistency)
+npm run test:llmops:consistency # consistency tests only (5 runs per case)
+npm run test:load:analyze       # compare results against baseline
 npm run validate:manifests  # K8s manifest policy validation
 npm run lint                # ESLint + custom resilience rules
 ```
+
+#### LLMOps Configuration
+
+| Variable | Default | Purpose |
+|----------|---------|--------|
+| `SERVICE_C_URL` | `http://localhost:3002` | Service C endpoint |
+| `LLMOPS_ACCURACY_THRESHOLD` | `0.6` | Min golden set accuracy (gates pipeline) |
+| `LLMOPS_CONSISTENCY_RUNS` | `5` | Runs per case in consistency tests |
+| `LLMOPS_MAX_CONFIDENCE_VARIANCE` | `0.3` | Max std dev allowed per case |
+| `LLMOPS_STABILITY_THRESHOLD` | `0.8` | Min % of cases that must be fully stable |
+
+Both `test:llmops` and `test:llmops:consistency` run on every push in CI (Ollama is local, no API cost). They gate the pipeline — accuracy or stability regressions block merge.
 
 ### Chaos Experiments
 
@@ -83,6 +97,8 @@ install → lint ──────────┐
                                ├── BATS infra tests
                                ├── Vitest integration tests
                                ├── k6 smoke test (gates)
+                               ├── LLMOps evaluation (gates)
+                               ├── LLMOps consistency (gates)
                                ├── k6 regression/load test (non-blocking)
                                ├── Chaos experiments (main only)
                                └── Teardown (always)

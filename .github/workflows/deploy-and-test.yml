@@ -179,6 +179,12 @@ jobs:
           mkdir -p tests/llmops/results
           SERVICE_C_URL=http://localhost:3002 npm run test:llmops
 
+      # --- LLMOps consistency (stability gate) ---
+
+      - name: Run LLMOps consistency tests
+        id: llmops-consistency
+        run: SERVICE_C_URL=http://localhost:3002 npm run test:llmops:consistency
+
       - name: Upload LLMOps results
         if: always()
         uses: actions/upload-artifact@v7
@@ -288,13 +294,18 @@ jobs:
         continue-on-error: true
         run: npm run trend:llmops
 
+      - name: Extract consistency trend
+        if: always()
+        continue-on-error: true
+        run: npm run trend:consistency
+
       - name: Commit dashboard data
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json docs/dashboard/llmops-trend.json
+          git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json docs/dashboard/llmops-trend.json docs/dashboard/consistency-trend.json
           git diff --cached --quiet || git commit -m "chore: update dashboard data [skip ci]"
           git push
 
