@@ -115,6 +115,14 @@
           <tbody id="llmHistoryTable"></tbody>
         </table>
       </div>
+      <div class="card">
+        <h2>Consistency — Stability Rate Over Time</h2>
+        <canvas id="consistencyChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>Consistency — Stable vs Unstable (Latest)</h2>
+        <canvas id="consistencyBreakdownChart"></canvas>
+      </div>
       <div class="card full-width">
         <h2>Failures (Latest Run)</h2>
         <table class="data-table">
@@ -129,6 +137,7 @@
     let perfData = [];
     let chaosData = [];
     let llmopsData = [];
+    let consistencyData = [];
     let charts = {};
     let selectedDays = 30;
 
@@ -301,14 +310,50 @@
       }
     }
 
+    function renderConsistency(data) {
+      if (data.length === 0) return;
+
+      const labels = data.map(d => d.date);
+
+      charts.consistency = new Chart(document.getElementById('consistencyChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'stability %',
+            data: data.map(d => (d.stabilityRate * 100)),
+            borderColor: '#a371f7',
+            tension: 0.3,
+            pointRadius: 4,
+          }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, max: 100, title: { display: true, text: '%', color: '#8b949e' } } } },
+      });
+
+      const latest = data[data.length - 1];
+      charts.consistencyBreakdown = new Chart(document.getElementById('consistencyBreakdownChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Stable', 'Unstable'],
+          datasets: [{
+            data: [latest.stable, latest.unstable],
+            backgroundColor: ['#3fb950', '#f85149'],
+          }],
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#8b949e' } } } },
+      });
+    }
+
     function render() {
       destroyCharts();
       const filteredPerf = filterByDays(perfData, selectedDays);
       const filteredChaos = filterByDays(chaosData, selectedDays);
       const filteredLLMOps = filterByDays(llmopsData, selectedDays);
+      const filteredConsistency = filterByDays(consistencyData, selectedDays);
       renderPerf(filteredPerf);
       renderChaos(filteredChaos);
       renderLLMOps(filteredLLMOps);
+      renderConsistency(filteredConsistency);
 
       const label = selectedDays === 0 ? 'Showing all data' : `Showing last ${selectedDays} days`;
       document.getElementById('rangeLabel').textContent = label;
@@ -342,10 +387,11 @@
       } catch { return []; }
     }
 
-    Promise.all([load('trend.json'), load('chaos-trend.json'), load('llmops-trend.json')]).then(([perf, chaos, llmops]) => {
+    Promise.all([load('trend.json'), load('chaos-trend.json'), load('llmops-trend.json'), load('consistency-trend.json')]).then(([perf, chaos, llmops, consistency]) => {
       perfData = perf;
       chaosData = chaos;
       llmopsData = llmops;
+      consistencyData = consistency;
       render();
     });
   </script>
