@@ -138,5 +138,95 @@
       "count": 0,
       "caseIds": []
     }
+  },
+  {
+    "date": "2026-05-06",
+    "branch": "main",
+    "model": "llama3.2:1b",
+    "totalCases": 36,
+    "passed": 27,
+    "accuracy": 0.75,
+    "perCategory": {
+      "critical": {
+        "total": 10,
+        "passed": 8,
+        "accuracy": 0.8
+      },
+      "warning": {
+        "total": 10,
+        "passed": 8,
+        "accuracy": 0.8
+      },
+      "info": {
+        "total": 9,
+        "passed": 6,
+        "accuracy": 0.6666666666666666
+      },
+      "ok": {
+        "total": 7,
+        "passed": 5,
+        "accuracy": 0.7142857142857143
+      }
+    },
+    "failures": [
+      {
+        "id": "gs-005",
+        "input": "SSL certificate expired, HTTPS connections rejected",
+        "expected": "critical",
+        "actual": "warning"
+      },
+      {
+        "id": "gs-011",
+        "input": "third-party API returning intermittent 503 errors",
+        "expected": "warning",
+        "actual": "critical"
+      },
+      {
+        "id": "gs-014",
+        "input": "error rate increased from 0.1% to 2.5% in the last hour",
+        "expected": "warning",
+        "actual": "critical"
+      },
+      {
+        "id": "gs-016",
+        "input": "scheduled maintenance window tomorrow at 2am UTC",
+        "expected": "info",
+        "actual": "warning"
+      },
+      {
+        "id": "gs-019",
+        "input": "configuration change applied to staging environment",
+        "expected": "info",
+        "actual": "warning"
+      },
+      {
+        "id": "gs-021",
+        "input": "feature flag enabled for 10% of users in canary group",
+        "expected": "info",
+        "actual": "warning"
+      },
+      {
+        "id": "gs-026",
+        "input": "load test passed, system handled 10k concurrent users",
+        "expected": "ok",
+        "actual": "critical"
+      },
+      {
+        "id": "gs-029",
+        "input": "latency p50 at 45ms, well within SLA",
+        "expected": "ok",
+        "actual": "critical"
+      },
+      {
+        "id": "gs-035",
+        "input": "🔥🔥🔥 URGENT: entire cluster unreachable 🔥🔥🔥",
+        "expected": "critical",
+        "actual": "warning"
+      }
+    ],
+    "rejections": {
+      "count": 0,
+      "caseIds": []
+    }
   }
 ]
