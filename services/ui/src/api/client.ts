@@ -7,6 +7,7 @@ export async function classifyText(text: string): Promise<ClassifyResponse> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!res.ok) {
@@ -17,7 +18,9 @@ export async function classifyText(text: string): Promise<ClassifyResponse> {
 }
 
 export async function fetchData(): Promise<DataResponse> {
-  const res = await fetch(`${BASE_URL}/data`);
+  const res = await fetch(`${BASE_URL}/data`, {
+    signal: AbortSignal.timeout(5000),
+  });
 
   if (!res.ok) {
     throw new Error(`Fetch data failed: ${res.status}`);
