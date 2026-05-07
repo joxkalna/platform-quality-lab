@@ -8,7 +8,7 @@ const SERVICE_C_URL = 'http://localhost:9002'
 describe('Pact Verification — service-a', () => {
   let server: http.Server
   let stubs: StubbedIntegrations
-  const PORT = 8001
+  const PORT = 8002
 
   beforeAll(async () => {
     // Service A reads env vars at module load — must be set before import
