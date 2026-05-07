@@ -228,5 +228,53 @@
       "count": 0,
       "caseIds": []
     }
+  },
+  {
+    "date": "2026-05-07",
+    "branch": "main",
+    "model": "llama3.2:1b",
+    "totalCases": 13,
+    "passed": 11,
+    "accuracy": 0.8461538461538461,
+    "perCategory": {
+      "critical": {
+        "total": 5,
+        "passed": 4,
+        "accuracy": 0.8
+      },
+      "warning": {
+        "total": 2,
+        "passed": 2,
+        "accuracy": 1
+      },
+      "info": {
+        "total": 3,
+        "passed": 2,
+        "accuracy": 0.6666666666666666
+      },
+      "ok": {
+        "total": 3,
+        "passed": 3,
+        "accuracy": 1
+      }
+    },
+    "failures": [
+      {
+        "id": "gs-016",
+        "input": "scheduled maintenance window tomorrow at 2am UTC",
+        "expected": "info",
+        "actual": "warning"
+      },
+      {
+        "id": "gs-035",
+        "input": "🔥🔥🔥 URGENT: entire cluster unreachable 🔥🔥🔥",
+        "expected": "critical",
+        "actual": "warning"
+      }
+    ],
+    "rejections": {
+      "count": 0,
+      "caseIds": []
+    }
   }
 ]

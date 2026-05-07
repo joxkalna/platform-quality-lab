@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "date": "2026-05-07",
+    "branch": "main",
+    "runsPerCase": 5,
+    "casesChecked": 8,
+    "stable": 5,
+    "unstable": 3,
+    "stabilityRate": 0.625
+  }
+]
