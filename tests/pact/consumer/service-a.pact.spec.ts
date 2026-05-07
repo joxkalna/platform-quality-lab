@@ -13,6 +13,31 @@ const serviceC = new PactV4({
   dir: path.resolve(__dirname, '../../pacts'),
 })
 
+const infoResponse = {
+  headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  body: {
+    service: MatchersV3.string('service-b'),
+    timestamp: MatchersV3.number(1234567890),
+    data: {
+      version: MatchersV3.string('1.0.0'),
+    },
+  },
+}
+
+const classifyRequest = {
+  headers: { 'Content-Type': 'application/json' },
+  body: { text: MatchersV3.string('server is down and unresponsive') },
+}
+
+const classifyResponse = {
+  headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  body: {
+    category: MatchersV3.string('critical'),
+    confidence: MatchersV3.decimal(0.95),
+    model: MatchersV3.string('llama3.2:1b'),
+  },
+}
+
 describe('Service A → Service B', () => {
   it('expects GET /info to return service info', async () => {
     await serviceB
@@ -21,17 +46,13 @@ describe('Service A → Service B', () => {
       .uponReceiving('a request for service info')
       .withRequest('GET', '/info')
       .willRespondWith(200, (builder) => {
-        builder.headers({ 'Content-Type': 'application/json; charset=utf-8' })
-        builder.jsonBody({
-          service: MatchersV3.string('service-b'),
-          timestamp: MatchersV3.number(1234567890),
-          data: {
-            version: MatchersV3.string('1.0.0'),
-          },
-        })
+        builder.headers(infoResponse.headers)
+        builder.jsonBody(infoResponse.body)
       })
       .executeTest(async (mockServer) => {
-        const response = await fetch(`${mockServer.url}/info`)
+        const response = await fetch(`${mockServer.url}/info`, {
+          signal: AbortSignal.timeout(5000),
+        })
         const body = await response.json()
 
         expect(response.status).toBe(200)
@@ -49,22 +70,19 @@ describe('Service A → Service C', () => {
       .given('service-c is running')
       .uponReceiving('a request to classify text')
       .withRequest('POST', '/classify', (builder) => {
-        builder.headers({ 'Content-Type': 'application/json' })
-        builder.jsonBody({ text: MatchersV3.string('server is down and unresponsive') })
+        builder.headers(classifyRequest.headers)
+        builder.jsonBody(classifyRequest.body)
       })
       .willRespondWith(200, (builder) => {
-        builder.headers({ 'Content-Type': 'application/json; charset=utf-8' })
-        builder.jsonBody({
-          category: MatchersV3.string('critical'),
-          confidence: MatchersV3.decimal(0.95),
-          model: MatchersV3.string('llama3.2:1b'),
-        })
+        builder.headers(classifyResponse.headers)
+        builder.jsonBody(classifyResponse.body)
       })
       .executeTest(async (mockServer) => {
         const response = await fetch(`${mockServer.url}/classify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: 'server is down and unresponsive' }),
+          signal: AbortSignal.timeout(5000),
         })
         const body = await response.json()
 

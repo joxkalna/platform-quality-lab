@@ -1,12 +1,14 @@
 /**
  * Stubbed integrations for Pact provider verification.
  *
- * A class that sets up and tears down mocked 3rd party dependencies
- * so the service can run its real logic without live external services.
+ * Each integration owns its own URL matching (intercept function).
+ * This class just composes them into a single fetch interceptor.
  */
 
 import { classifyCriticalResponse } from '../fixtures/llm-responses'
-import { stubOllamaClassify, unstubOllama, createFetchInterceptor } from './integrations/ollama'
+import { stubOllamaClassify, unstubOllama, createFetchInterceptor as createOllamaInterceptor } from './integrations/ollama'
+import { stubServiceB, unstubServiceB, interceptServiceB } from './integrations/service-b'
+import { stubServiceC, unstubServiceC, interceptServiceC } from './integrations/service-c.stub'
 
 const originalFetch = globalThis.fetch
 
@@ -18,14 +20,36 @@ export class StubbedIntegrations {
     return this
   }
 
+  withServiceB(url: string) {
+    stubServiceB(url)
+    return this
+  }
+
+  withServiceC(url: string) {
+    stubServiceC(url)
+    return this
+  }
+
   start() {
     stubOllamaClassify(this.classifyResponse)
-    globalThis.fetch = createFetchInterceptor(originalFetch) as typeof fetch
+    const ollamaInterceptor = createOllamaInterceptor(originalFetch)
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input.toString()
+
+      const stubbed = interceptServiceB(url) ?? interceptServiceC(url)
+      if (stubbed) return stubbed
+
+      return ollamaInterceptor(input, init)
+    }) as typeof fetch
+
     return this
   }
 
   reset() {
     unstubOllama()
+    unstubServiceB()
+    unstubServiceC()
     globalThis.fetch = originalFetch
     return this
   }
