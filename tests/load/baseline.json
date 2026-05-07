@@ -7,16 +7,16 @@
   "baseline": {
     "checks": "100%",
     "http_req_failed": "0%",
-    "http_req_duration_p90_ms": 3.86,
-    "http_req_duration_p95_ms": 4.75,
-    "http_req_waiting_p95_ms": 4.63,
-    "group_duration_p95_ms": 9.11,
-    "iteration_duration_p95_ms": 12.26,
-    "http_reqs_rate": 20.0
+    "http_req_duration_p90_ms": 2.30,
+    "http_req_duration_p95_ms": 3.50,
+    "http_req_waiting_p95_ms": 3.40,
+    "group_duration_p95_ms": 7.00,
+    "iteration_duration_p95_ms": 10.00,
+    "http_reqs_rate": 15.0
   },
   "source": {
-    "branch": "phase6/k6",
-    "date": "2026-04-28",
-    "note": "First load test on Kind cluster. 5min sustained traffic (5 req/s health, 3 req/s data, 2 req/s journey)."
+    "branch": "main",
+    "date": "2026-05-07",
+    "note": "Re-baselined after Phase 6 (Service C + Ollama). Throughput lower due to additional cluster workload. Latency improved."
   }
 }

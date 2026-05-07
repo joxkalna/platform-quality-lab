@@ -114,7 +114,7 @@ install → lint ──────────┐
 - [x] Phase 5: CI guardrails (Pact contracts, manifest validation, chaos gates, ESLint rules)
 - [x] Phase 6: AI service (Service C + Pact evolution + k6 load testing)
 - [ ] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
-- [ ] Phase 8: API collections (Bruno — exploratory testing, environment management, CI smoke tests)
+- [x] Phase 8: API collections (Bruno — exploratory testing, environment management)
 - [ ] Phase 9: UI + frontend quality (React UI for classify, Pact frontend consumer, Lighthouse CI, k6 browser, Playwright E2E)
 
 ## Documentation

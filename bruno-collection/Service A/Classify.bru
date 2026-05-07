@@ -1,0 +1,31 @@
+meta {
+  name: Classify
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{serviceAUrl}}/classify
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "text": "server is down and completely unresponsive"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.source: eq service-a
+  res.body.classification.category: isString
+  res.body.classification.confidence: isNumber
+}
+
+docs {
+  Proxies text classification to Service C via Service A.
+
+  Only works when Service C + Ollama are available (Kind cluster or CI).
+  Will return 502 locally unless LLM is running.
+}

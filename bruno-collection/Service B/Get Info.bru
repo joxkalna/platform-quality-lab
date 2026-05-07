@@ -1,0 +1,17 @@
+meta {
+  name: Get Info
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{serviceBUrl}}/info
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.service: eq service-b
+  res.body.data.version: eq 1.0.0
+}
