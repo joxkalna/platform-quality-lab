@@ -432,5 +432,83 @@
       "count": 0,
       "caseIds": []
     }
+  },
+  {
+    "date": "2026-05-07",
+    "branch": "main",
+    "model": "llama3.2:1b",
+    "totalCases": 36,
+    "passed": 29,
+    "accuracy": 0.8055555555555556,
+    "perCategory": {
+      "critical": {
+        "total": 10,
+        "passed": 10,
+        "accuracy": 1
+      },
+      "warning": {
+        "total": 10,
+        "passed": 6,
+        "accuracy": 0.6
+      },
+      "info": {
+        "total": 9,
+        "passed": 6,
+        "accuracy": 0.6666666666666666
+      },
+      "ok": {
+        "total": 7,
+        "passed": 7,
+        "accuracy": 1
+      }
+    },
+    "failures": [
+      {
+        "id": "gs-011",
+        "input": "third-party API returning intermittent 503 errors",
+        "expected": "warning",
+        "actual": "critical"
+      },
+      {
+        "id": "gs-013",
+        "input": "deprecated API version still receiving traffic, sunset in 30 days",
+        "expected": "warning",
+        "actual": "critical"
+      },
+      {
+        "id": "gs-015",
+        "input": "replica lag on read database exceeding 5 seconds",
+        "expected": "warning",
+        "actual": "critical"
+      },
+      {
+        "id": "gs-016",
+        "input": "scheduled maintenance window tomorrow at 2am UTC",
+        "expected": "info",
+        "actual": "critical"
+      },
+      {
+        "id": "gs-021",
+        "input": "feature flag enabled for 10% of users in canary group",
+        "expected": "info",
+        "actual": "warning"
+      },
+      {
+        "id": "gs-022",
+        "input": "security patch available for Node.js runtime",
+        "expected": "info",
+        "actual": "ok"
+      },
+      {
+        "id": "gs-034",
+        "input": "everything is fine but also the server might be on fire I am not sure maybe check later",
+        "expected": "warning",
+        "actual": "ok"
+      }
+    ],
+    "rejections": {
+      "count": 0,
+      "caseIds": []
+    }
   }
 ]
