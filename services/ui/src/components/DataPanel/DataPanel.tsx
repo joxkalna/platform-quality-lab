@@ -1,6 +1,51 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchData } from "../../api/client";
 import type { DataResponse } from "../../api/types";
+import Button from "../ui/Button";
+import DataField from "../ui/DataField";
+import ErrorMessage from "../ui/ErrorMessage";
+
+const MatrixRain = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    const chars = "01アイウエオカキクケコサシスセソ";
+    const fontSize = 12;
+    const columns = Math.floor(canvas.width / fontSize);
+    const drops: number[] = Array(columns).fill(1);
+
+    const draw = () => {
+      ctx.fillStyle = "rgba(17, 24, 39, 0.15)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#22c55e";
+      ctx.font = `${fontSize}px monospace`;
+
+      for (let i = 0; i < drops.length; i++) {
+        const char = chars[Math.floor(Math.random() * chars.length)];
+        ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    };
+
+    const interval = setInterval(draw, 50);
+    return () => clearInterval(interval);
+  }, []);
+
+  return <canvas ref={canvasRef} className="canvas-bg" />;
+};
 
 const DataPanel = () => {
   const [data, setData] = useState<DataResponse | null>(null);
@@ -22,32 +67,35 @@ const DataPanel = () => {
     }
   };
 
+  const formatTimestamp = (ts: number) =>
+    new Date(ts).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
+
   return (
-    <section className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-      <h2 className="text-lg font-semibold mb-4">Service Data</h2>
-
-      <button
-        onClick={handleFetch}
-        disabled={loading}
-        className="px-5 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md font-medium transition-colors"
-      >
+    <>
+      <Button variant="secondary" onClick={handleFetch} disabled={loading}>
         {loading ? "Fetching..." : "Fetch Data"}
-      </button>
+      </Button>
 
-      {error && (
-        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-400 text-sm">
-          {error}
-        </div>
-      )}
+      {error && <ErrorMessage message={error} />}
 
       {data && (
-        <div className="mt-4 bg-gray-900 rounded-md p-4">
-          <pre className="text-sm text-gray-300 font-mono overflow-x-auto">
-            {JSON.stringify(data, null, 2)}
-          </pre>
+        <div className="result-panel">
+          <MatrixRain />
+          <div className="result-content">
+            <div className="result-row">
+              <span className="result-label">Route:</span>
+              <span className="result-value">
+                {data.source} → {data.downstream.service}
+              </span>
+            </div>
+            <div className="result-grid">
+              <DataField label="Version" value={data.downstream.data.version} />
+              <DataField label="Responded at" value={formatTimestamp(data.downstream.timestamp)} />
+            </div>
+          </div>
         </div>
       )}
-    </section>
+    </>
   );
 };
 

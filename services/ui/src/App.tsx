@@ -1,6 +1,7 @@
 import Classify from "./components/Classify/Classify";
 import DataPanel from "./components/DataPanel/DataPanel";
 import HealthStatus from "./components/HealthStatus/HealthStatus";
+import Section from "./components/Section";
 
 const App = () => (
   <div className="max-w-3xl mx-auto px-4 py-8">
@@ -11,10 +12,18 @@ const App = () => (
       </p>
     </header>
 
-    <div className="space-y-6">
-      <Classify />
-      <DataPanel />
-      <HealthStatus />
+    <div className="space-y-4">
+      <Section title="Classify Text" defaultOpen>
+        <Classify />
+      </Section>
+
+      <Section title="Service Data">
+        <DataPanel />
+      </Section>
+
+      <Section title="Health Status">
+        <HealthStatus />
+      </Section>
     </div>
   </div>
 );
