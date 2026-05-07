@@ -15,6 +15,7 @@ Treat this as a real service in a large org. Production-grade tooling and patter
 
 ## Tech Stack
 - TypeScript / Node.js (Express)
+- React + Vite + Tailwind (UI)
 - Docker (multi-stage, alpine, non-root)
 - Kind (Kubernetes in Docker)
 - GitHub Actions
@@ -25,24 +26,35 @@ Treat this as a real service in a large org. Production-grade tooling and patter
 |---------|------|------|
 | Service A | 3000 | Gateway — calls B (`/info`) and C (`/classify`) |
 | Service B | 3001 | Downstream data service |
-| Service C | 3002 | LLM text classification (Ollama) |
+| Service C | 3002 | LLM text classification (Ollama in CI, mock locally) |
+| UI | 5173 | React frontend — calls Service A |
 
 Each service: `app.ts` (pure Express) + `server.ts` (entrypoint). Tests import `app.ts` directly.
+
+UI: `services/ui/` — Vite + React + Tailwind. API client layer in `src/api/` (Pact tests this). Shared UI components in `src/components/ui/`. Styles in `src/index.css` using `@apply`.
 
 ## Phased Plan
 - **Phase 1–5** ✅ Scaffold, deploy, CI, chaos, guardrails
 - **Phase 6** ✅ AI service, Pact evolution, k6 load testing, Slack notifications, dashboard
-- **Phase 7** 🔄 LLMOps — golden sets, accuracy thresholds, consistency tests, evaluation pipelines
-- **Phase 8** API collections (Bruno)
-- **Phase 9** UI + frontend quality
+- **Phase 7** ✅ LLMOps — golden sets, accuracy thresholds, consistency tests (MR 3 deferred: dashboard trends after 10+ main runs)
+- **Phase 8** ✅ API collections (Bruno — exploratory testing, environment management)
+- **Phase 9** 🔄 UI + frontend quality
+- **Phase 10** 🔜 Production deployment (Raspberry Pi, k3s, Cloudflare Tunnel)
 
-## Current Phase: 7 — LLMOps
-Plan: `docs/llmops/phase7-plan.md`
+## Current Phase: 9 — UI + Frontend Quality
+Plan: `docs/roadmap/phase9-ui-frontend-quality.md`
+
+### Phase 9 Status
+- [x] MR 1 — React UI scaffold + mock mode + deploy scripts
+- [ ] MR 2 — Frontend Pact consumer (UI → Service A `/classify` contract)
+- [ ] MR 3 — Playwright E2E (happy path, error states)
+- [ ] MR 4 — Lighthouse CI (Core Web Vitals budgets)
+- [ ] MR 5 — k6 browser + frontend chaos
 
 ## Commands
 
 ### Dev
-- `npm run dev` — start all services locally
+- `npm run dev` — start all services (A, B, C in mock mode, UI) + opens browser
 - `npm run stop` — kill all services
 - `./scripts/deploy-local.sh` — full Kind deploy
 - `kind delete cluster --name platform-lab` — tear down
@@ -73,11 +85,16 @@ Plan: `docs/llmops/phase7-plan.md`
 - `imagePullPolicy: Never` — Kind uses pre-loaded images
 - Deploy order: B first, then A (A depends on B)
 - Ollama runs on CI host, not in Kind (disk space)
+- `LLM_MOCK=true` for local dev — Service C returns keyword-based canned responses
+- LLM temperature 0 — deterministic classification (no randomness)
+- Few-shot examples in system prompt — teaches model category boundaries
 - `PACT_ENABLED` repo variable for break-glass (commit message flags don't work on PR merges)
 - Pipeline: verification and deployment recording in separate stages
 - k6: native TypeScript, 3-layer architecture, 10% regression threshold
 - Slack webhooks for alerts (no bot framework)
 - GitHub Pages dashboard (artifact-as-database pattern)
+- UI: Vite proxy handles CORS locally, all fetch goes through `/api` prefix
+- UI styles: Tailwind utilities extracted to `index.css` via `@apply`, components use semantic class names
 
 ## Pact
 - PactFlow (SaaS) broker, token auth
@@ -114,4 +131,6 @@ tests/<domain>/
 - `docs/pact/` — all Pact documentation
 - `docs/performance/k6-load-testing.md` — k6 architecture and patterns
 - `docs/llmops/phase7-plan.md` — Phase 7 implementation plan
+- `docs/llmops/LLM-general-notes.md` — LLM patterns (agents, routing, parallelization)
 - `docs/roadmap/phase9-ui-frontend-quality.md` — Phase 9 plan
+- `bruno-collection/README.md` — Bruno API collection docs

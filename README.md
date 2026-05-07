@@ -67,9 +67,10 @@ Requires a running Kind cluster (`./scripts/deploy-local.sh`).
 
 ```
 services/
-├── service-a/    Express (port 3000) → calls Service B
+├── service-a/    Express (port 3000) → calls Service B + C
 ├── service-b/    Express (port 3001) → returns data
-└── service-c/    Express (port 3002) → LLM text classification (Phase 6)
+├── service-c/    Express (port 3002) → LLM text classification (Phase 6)
+└── ui/           React + Vite (port 5173) → calls Service A (Phase 9)
 ```
 
 Each service follows the same structure: `app.ts` (pure Express app) + `server.ts` (entrypoint). Tests import `app.ts` directly — no server started.
@@ -113,7 +114,7 @@ install → lint ──────────┐
 - [x] Phase 4: Failure injection (pod kill, resource pressure, dependency failure, latency)
 - [x] Phase 5: CI guardrails (Pact contracts, manifest validation, chaos gates, ESLint rules)
 - [x] Phase 6: AI service (Service C + Pact evolution + k6 load testing)
-- [ ] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
+- [x] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
 - [x] Phase 8: API collections (Bruno — exploratory testing, environment management)
 - [ ] Phase 9: UI + frontend quality (React UI for classify, Pact frontend consumer, Lighthouse CI, k6 browser, Playwright E2E)
 
