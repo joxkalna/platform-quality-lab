@@ -4,7 +4,7 @@ const ConfigSchema = z.object({
   port: z.coerce.number().default(3002),
   llmEndpoint: z.string().url(),
   llmModel: z.string().default("llama3.2:1b"),
-  llmTemperature: z.coerce.number().min(0).max(2).default(0.3),
+  llmTemperature: z.coerce.number().min(0).max(2).default(0),
   llmTimeout: z.coerce.number().positive().default(10000),
 });
 

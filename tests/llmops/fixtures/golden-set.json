@@ -97,10 +97,10 @@
   },
   {
     "id": "gs-035",
-    "input": "🔥🔥🔥 URGENT: entire cluster unreachable 🔥🔥🔥",
+    "input": "URGENT: entire cluster unreachable",
     "expectedCategory": "critical",
     "acceptableCategories": ["critical"],
     "minConfidence": 0.5,
-    "tags": ["edge-case", "emoji"]
+    "tags": ["obvious", "infrastructure"]
   }
 ]

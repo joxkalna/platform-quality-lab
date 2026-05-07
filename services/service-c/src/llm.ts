@@ -6,6 +6,25 @@ export type { ClassificationResult };
 
 const SYSTEM_PROMPT = `You are a text classifier. Classify the input into exactly one of these categories: critical, warning, info, ok.
 
+Category definitions:
+- critical: system is DOWN, data loss, complete outage, service crash
+- warning: degraded performance, errors increasing, resources running low
+- info: scheduled events, configuration changes, deployments, notifications
+- ok: everything healthy, checks passing, normal operation
+
+Examples:
+Input: "database is completely unreachable, all queries failing"
+Output: {"category": "critical", "confidence": 0.95}
+
+Input: "response times increasing, p95 above 2 seconds"
+Output: {"category": "warning", "confidence": 0.8}
+
+Input: "scheduled maintenance window tomorrow at 3am"
+Output: {"category": "info", "confidence": 0.9}
+
+Input: "all health checks passing, latency normal"
+Output: {"category": "ok", "confidence": 0.9}
+
 Respond with ONLY a JSON object in this exact format, no other text:
 {"category": "<category>", "confidence": <0.0-1.0>}`;
 
