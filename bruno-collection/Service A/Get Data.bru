@@ -1,0 +1,17 @@
+meta {
+  name: Get Data
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{serviceAUrl}}/data
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.source: eq service-a
+  res.body.downstream.service: eq service-b
+}

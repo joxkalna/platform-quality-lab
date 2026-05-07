@@ -1,0 +1,31 @@
+meta {
+  name: Classify
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{serviceCUrl}}/classify
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "text": "disk usage at 92%, will be full within 2 hours"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.category: isString
+  res.body.confidence: isNumber
+  res.body.model: isString
+}
+
+docs {
+  Direct classification via Service C.
+
+  Only works when Ollama is available (Kind cluster or CI).
+  Will return 502 locally unless LLM is running.
+}
