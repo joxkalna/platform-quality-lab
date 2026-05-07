@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .badge {
+    @apply inline-block px-3 py-1 rounded-full border text-sm font-medium;
+  }
+
+  .btn {
+    @apply px-5 py-2 rounded-md font-medium transition-colors disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-700 hover:bg-gray-600 disabled:bg-gray-600;
+  }
+
+  .error-message {
+    @apply mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-md text-red-400 text-sm;
+  }
+
+  .status-dot {
+    @apply inline-block w-2.5 h-2.5 rounded-full;
+  }
+
+  .data-field-label {
+    @apply text-gray-400 text-sm;
+  }
+
+  .data-field-value {
+    @apply text-gray-100 font-mono text-sm;
+  }
+
+  .textarea {
+    @apply w-full bg-gray-900 border border-gray-600 rounded-md p-3 text-gray-100 placeholder-gray-500 resize-none h-24 focus:outline-none focus:border-blue-500;
+  }
+
+  .example-chip {
+    @apply text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300 transition-colors;
+  }
+
+  .section-header {
+    @apply w-full flex items-center justify-between p-6 text-left rounded-t-lg transition-colors hover:bg-green-900/20;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold transition-colors;
+  }
+
+  .section-chevron {
+    @apply text-gray-400 transition-all;
+  }
+
+  .section-header:hover .section-title {
+    @apply text-green-400;
+  }
+
+  .section-header:hover .section-chevron {
+    @apply text-green-400;
+  }
+
+  .result-panel {
+    @apply mt-4 bg-gray-900 rounded-md p-4 relative overflow-hidden;
+  }
+
+  .result-content {
+    @apply relative z-10 space-y-3;
+  }
+
+  .result-row {
+    @apply flex items-center gap-2 text-sm;
+  }
+
+  .result-label {
+    @apply text-gray-400;
+  }
+
+  .result-value {
+    @apply font-mono text-gray-100;
+  }
+
+  .result-grid {
+    @apply grid grid-cols-2 gap-4;
+  }
+
+  .classify-result {
+    @apply mt-4 space-y-3;
+  }
+
+  .examples-section {
+    @apply mt-4;
+  }
+
+  .examples-label {
+    @apply text-xs text-gray-500 mb-2;
+  }
+
+  .examples-grid {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .health-list {
+    @apply space-y-3;
+  }
+
+  .health-row {
+    @apply flex items-center gap-3;
+  }
+
+  .health-name {
+    @apply text-gray-300;
+  }
+
+  .health-status {
+    @apply text-xs text-gray-500 font-mono ml-auto;
+  }
+
+  .section-body {
+    @apply px-6 pb-6;
+  }
+
+  .section-wrapper {
+    @apply bg-gray-800 rounded-lg border border-gray-700;
+  }
+
+  .canvas-bg {
+    @apply absolute inset-0 w-full h-full opacity-30;
+  }
+}

@@ -198,8 +198,9 @@ Upload as CI artifact. Append to trend file for dashboard (same pattern as k6).
 
 ## TODOs
 
-- [ ] **Accuracy drift detection** — after ~5-10 main runs, add Slack alert when accuracy drops >10% vs rolling average. Needs baseline data first.
-- [ ] **Investigate throughput -24% regression** — consistent across branches (`main`, `phase7/llmOps-part1`, `41/merge`). Likely caused by Ollama/Service C adding load to the Kind cluster during k6 runs. Check if port-forwarding Service C during perf tests is the cause, or if the baseline needs recalibrating post-Phase 6.
+- [x] ~~**Investigate throughput -24% regression**~~ — resolved by re-baselining after Phase 6. Throughput drop was expected due to Service C + Ollama cluster workload.
+- [ ] **Accuracy drift detection** — after ~10+ main runs (accumulating during Phase 9), add Slack alert when accuracy drops >10% vs rolling average. Blocked until enough trend data exists.
+- [ ] **MR 3 — Evaluation pipeline + dashboard integration** — trend extraction, accuracy trend chart, Slack alerts, baseline ratchet. Deferred until after Phase 9 (need 10+ main runs for meaningful trends).
 - [ ] **CI: Path-based conditional jobs** — add `paths` filters to the fast parallel jobs only (lint, typecheck, validate-k8s) so they skip on docs-only changes. The `deploy-and-test` job always runs regardless of paths — it produces trend data for the dashboard (k6, chaos, LLMOps) and gaps in historical data are worse than ~8 min of CI time on a README edit. Pact also always runs (contract verification is never safe to skip).
 - [ ] **CI: Benchmark npm cache vs fresh install** — test whether `npm ci` on GitHub runners (fast network) is faster than the cache save/restore overhead. If so, remove the cache step entirely and simplify the install job.
 - [ ] **CI: xSmarter artifact/cache scoping** — not all downstream jobs need all `node_modules`. Scope cache restores per-job (e.g. `validate-k8s` only needs root modules, not service modules). Reduces restore time.
@@ -210,7 +211,7 @@ Upload as CI artifact. Append to trend file for dashboard (same pattern as k6).
 ## What This Doesn't Cover (Future)
 
 - Model-as-judge evaluation (needs a second, stronger model)
-- Prompt versioning and A/B comparison
+- Prompt versioning
 - Cost/token tracking (Ollama is free, no tokens to count)
 - Human evaluation workflows
 - Embedding-based semantic similarity (overkill for category classification)

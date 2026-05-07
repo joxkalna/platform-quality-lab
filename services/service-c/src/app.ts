@@ -1,8 +1,13 @@
 import express from "express";
 import { loadConfig } from "./config";
 import { classify } from "./llm";
+import { classifyMock } from "./mock";
 
-const config = loadConfig();
+const LLM_MOCK = process.env.LLM_MOCK === "true";
+
+const config = LLM_MOCK
+  ? { port: 3002, llmEndpoint: "", llmModel: "mock", llmTemperature: 0, llmTimeout: 10000 }
+  : loadConfig();
 
 export const app = express();
 app.use(express.json());
@@ -12,6 +17,11 @@ app.get("/health", (_req, res) => {
 });
 
 app.get("/ready", async (_req, res) => {
+  if (LLM_MOCK) {
+    res.json({ status: "ready", service: "service-c", mode: "mock" });
+    return;
+  }
+
   try {
     const response = await fetch(`${config.llmEndpoint}/api/tags`, {
       signal: AbortSignal.timeout(2000),
@@ -35,7 +45,7 @@ app.post("/classify", async (req, res) => {
   }
 
   try {
-    const result = await classify(text, config);
+    const result = LLM_MOCK ? classifyMock(text) : await classify(text, config);
     res.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Classification failed";
