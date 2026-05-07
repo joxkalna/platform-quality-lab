@@ -428,6 +428,18 @@ This project demonstrates the simple case — one consumer, two providers, one r
 - **Per-service test directories** — when the monorepo grows beyond 3-4 services, move pact tests into each service's directory instead of a shared `tests/pact/`. Each service owns its consumer tests and provider verifier.
 - **Shared stub libraries** — when multiple providers stub the same dependency (e.g. an auth service), extract the stub into a shared test utility. Same pattern as `@myorg/platform-quality-utils` — extract when you find yourself duplicating.
 
+## Port Allocation for Provider Verification
+
+Each provider verification starts a real HTTP server. In a monorepo where multiple providers verify in the same Vitest process, each needs a unique port:
+
+| Provider | Port | Notes |
+|----------|------|-------|
+| Service B | 8000 | No external dependencies |
+| Service C | 8001 | Stubs Ollama via fetch interceptor |
+| Service A | 8002 | Stubs Service B + C via fetch interceptor |
+
+These are arbitrary — they just need to avoid conflicts with each other and with the real services (3000/3001/3002). In separate repos this isn't an issue since each provider verifies in its own pipeline.
+
 ## Best Practices
 
 - Use your real handler code in the verification server — don't rewrite the logic
