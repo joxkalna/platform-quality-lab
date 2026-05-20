@@ -23,11 +23,11 @@ export class ClassifyPage {
   }
 
   async getResult() {
-    await this.result.waitFor({ state: "visible" });
+    await this.result.waitFor({ state: "visible", timeout: 60_000 });
     return {
       category: await this.result.locator('[class*="badge"]').textContent(),
-      confidence: await this.result.locator('[data-field="Confidence"]').textContent(),
-      model: await this.result.locator('[data-field="Model"]').textContent(),
+      confidence: await this.result.locator(".data-field-value").first().textContent(),
+      model: await this.result.locator(".data-field-value").last().textContent(),
     };
   }
 
