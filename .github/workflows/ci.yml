@@ -28,7 +28,11 @@ jobs:
           cd services/service-a && npm ci
           cd ../service-b && npm ci
           cd ../service-c && npm ci
+          cd ../ui && npm ci
           cd ../../tests/load && npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
 
       - name: Cache node_modules
         uses: actions/cache/save@v5
@@ -38,8 +42,15 @@ jobs:
             services/service-a/node_modules
             services/service-b/node_modules
             services/service-c/node_modules
+            services/ui/node_modules
             tests/load/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Cache Playwright browsers
+        uses: actions/cache/save@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('**/package-lock.json') }}
 
   lint:
     needs: install
@@ -84,6 +95,7 @@ jobs:
             services/service-a/node_modules
             services/service-b/node_modules
             services/service-c/node_modules
+            services/ui/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             deps-
@@ -93,6 +105,9 @@ jobs:
           npm run typecheck:a
           npm run typecheck:b
           npm run typecheck:c
+
+      - name: Component tests
+        run: npm run test:component
 
   validate-k8s:
     needs: install

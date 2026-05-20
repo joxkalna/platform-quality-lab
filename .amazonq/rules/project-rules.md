@@ -101,6 +101,7 @@ Plan: `docs/roadmap/phase9-ui-frontend-quality.md`
 - Environments: dev → qa → prod (main only)
 - Feature branches: test + publish + verify only
 - `failIfNoPactsFound: false`, `enablePending: true`
+- UI is a Pact consumer of Service A — catches response shape drift at build time without needing services running
 - Full docs: `docs/pact/`
 
 ## Test Structure
