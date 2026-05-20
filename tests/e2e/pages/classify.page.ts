@@ -8,7 +8,7 @@ export class ClassifyPage {
 
   constructor(private page: Page) {
     this.textInput = page.locator("textarea");
-    this.classifyButton = page.getByRole("button", { name: /classify/i });
+    this.classifyButton = page.getByRole("button", { name: "Classify", exact: true });
     this.result = page.locator(".classify-result");
     this.error = page.locator('[class*="error"]');
   }
