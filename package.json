@@ -13,9 +13,9 @@
     "k8s:down": "kind delete cluster --name platform-lab && docker image rm registry.k8s.io/metrics-server/metrics-server:v0.8.1 2>/dev/null; echo 'cluster deleted'",
     "pact:broker": "./scripts/deploy-pact-broker.sh",
     "lint": "eslint services/*/src/**/*.ts",
-    "typecheck:a": "cd services/service-a && npx tsc --noEmit",
-    "typecheck:b": "cd services/service-b && npx tsc --noEmit",
-    "typecheck:c": "cd services/service-c && npx tsc --noEmit",
+    "typecheck:a": "cd services/service-a && npx --no-install tsc --noEmit",
+    "typecheck:b": "cd services/service-b && npx --no-install tsc --noEmit",
+    "typecheck:c": "cd services/service-c && npx --no-install tsc --noEmit",
     "test:integration": "vitest run --config tests/integration/vitest.config.mts",
     "test:infra": "bats tests/infrastructure/",
     "test:pact:verify": "vitest run --config tests/pact/vitest.pact.config.mts",
@@ -36,6 +36,9 @@
     "trend:chaos": "npx tsx scripts/chaos/extract-trend.ts",
     "trend:llmops": "npx tsx tests/llmops/scripts/extract-trend.ts",
     "trend:consistency": "npx tsx tests/llmops/scripts/extract-consistency-trend.ts",
+    "test:e2e": "npx playwright test --config tests/e2e/playwright.config.ts",
+    "test:e2e:ui": "npx playwright test --config tests/e2e/playwright.config.ts --ui",
+    "test:component": "cd services/ui && npm test",
     "dashboard": "cd docs/dashboard && python3 -m http.server 8080 & sleep 1 && open http://localhost:8080 && echo 'Dashboard at http://localhost:8080 — Ctrl+C to stop' && wait"
   },
   "devDependencies": {
@@ -50,6 +53,7 @@
     "js-yaml": "^4.1.1",
     "tsx": "^4.21.0",
     "typescript-eslint": "^8.59.2",
+    "@playwright/test": "^1.60.0",
     "vitest": "^4.1.5"
   }
 }

@@ -26,6 +26,8 @@ kind delete cluster --name platform-lab      # tear down
 npm run test:pact           # consumer contract tests
 npm run test:pact:verify    # provider verification
 npm run test:integration    # service endpoint tests
+npm run test:component      # UI component tests (no services needed)
+npm run test:e2e            # Playwright E2E (needs services running)
 npm run test:infra          # K8s infrastructure tests (needs Kind cluster)
 npm run test:load:local     # k6 single iteration (debug)
 npm run test:load:smoke     # k6 smoke test (30s, validates endpoints)
@@ -124,7 +126,7 @@ Full index: [docs/README.md](docs/README.md)
 
 | Area | Key docs |
 |------|----------|
-| Testing | [strategy](docs/testing/strategy.md), [chaos log](docs/testing/chaos-log.md) |
+| Testing | [strategy](docs/testing/strategy.md), [frontend testing](docs/testing/frontend-testing.md), [chaos log](docs/testing/chaos-log.md) |
 | Pact | [docs/pact/](docs/pact/) — big picture, guides, CI/CD patterns, break-glass, breaking changes |
 | Performance | [when to test](docs/performance/perf-min.md), [baselines](docs/performance/perf-baseline.md), [k6 plan](docs/performance/k6-load-testing.md) |
 | CI | [dependencies](docs/ci/ci-dependencies.md), [manifest validation](docs/ci/manifest-validation.md), [code quality](docs/ci/code-quality-gates.md) |

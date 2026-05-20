@@ -35,10 +35,18 @@ jobs:
             services/service-a/node_modules
             services/service-b/node_modules
             services/service-c/node_modules
+            services/ui/node_modules
             tests/load/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            deps-
+
+      - name: Restore Playwright browsers
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Playwright system deps
+        run: npx playwright install-deps chromium
 
       - name: Install Kind
         run: |
@@ -167,6 +175,23 @@ jobs:
         with:
           name: k6-results
           path: tests/load/results/
+          if-no-files-found: ignore
+
+      # --- Playwright E2E tests ---
+
+      - name: Run Playwright E2E tests
+        id: e2e
+        run: |
+          cd services/ui && npx vite --port 5173 &
+          timeout 15 bash -c 'until curl -s http://localhost:5173 > /dev/null; do sleep 1; done'
+          npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always() && steps.e2e.outcome != 'skipped'
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report/
           if-no-files-found: ignore
 
       # --- LLMOps evaluation (golden set accuracy gate) ---
