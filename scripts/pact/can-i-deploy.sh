@@ -30,7 +30,7 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 # Semicolon-separated list of pacticipants. In a multi-repo setup, this is
 # set per deploy job (e.g. "my-consumer;my-provider" for a stack that has both).
-PACTICIPANTS="service-a;service-b;service-c"
+PACTICIPANTS="service-a;service-b;service-c;ui"
 
 # In a multi-repo setup, ENVIRONMENT is set per deploy job.
 # We loop all environments below since we have one Kind cluster.

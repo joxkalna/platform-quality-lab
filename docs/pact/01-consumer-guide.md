@@ -81,3 +81,15 @@ You should never edit a pact file manually. It is always generated from tests.
 ## Next Steps
 
 Once your pact is published, the provider needs to verify it. See [02-provider-verification.md](./02-provider-verification.md).
+
+## Project Examples
+
+### Backend consumer: Service A → Service B
+
+`tests/pact/consumer/service-a.pact.spec.ts` — Service A expects `GET /info` to return `{ service, timestamp, data: { version } }`.
+
+### Frontend consumer: UI → Service A
+
+`tests/pact/consumer/ui.pact.spec.ts` — The UI expects `POST /classify` to return `{ source, classification: { category, confidence, model } }`.
+
+The frontend consumer test uses raw `fetch` against the Pact mock server — no browser, no React, no Vite. It tests the contract shape, not the UI rendering. This is the standard pattern for frontend Pact: test the API client function, not the component that calls it.
