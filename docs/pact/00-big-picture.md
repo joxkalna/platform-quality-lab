@@ -140,6 +140,29 @@ This project keeps everything in one repo for simplicity. In a real organisation
 
 See [06-repo-separation.md](./06-repo-separation.md) for the full mapping — what each repo contains, how they connect, and a checklist for scaling from monorepo to multi-repo.
 
+## Contract Map
+
+All consumer → provider relationships in this project:
+
+```
+UI (consumer)        → Service A (provider)    — POST /classify, GET /data
+Service A (consumer) → Service B (provider)    — GET /info
+Service A (consumer) → Service C (provider)    — POST /classify
+```
+
+Service A is both a consumer (of B and C) and a provider (to the UI). `can-i-deploy` checks all four pacticipants (`ui`, `service-a`, `service-b`, `service-c`) before any deployment.
+
+### Frontend as a Pact Consumer
+
+The UI is a standard Pact consumer — the only difference is that it runs in a browser. The consumer test doesn't need a browser though. It tests the **API client layer** (`services/ui/src/api/client.ts`) — the function that calls Service A and parses the response.
+
+This catches a common failure mode: someone changes Service A's response shape (e.g. renames `classification` to `result`) and:
+- Service A's own tests pass ✅
+- Service C's provider verification passes ✅
+- The UI breaks silently ❌
+
+With the UI consumer pact, `can-i-deploy` blocks the Service A change because the UI still depends on the old shape.
+
 ## Further Reading
 
 - [Pact Documentation](https://docs.pact.io)

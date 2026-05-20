@@ -158,6 +158,9 @@ install → lint ──────────────┐
 # Component tests — no services needed
 npm run test:component
 
+# Contract tests (Pact) — no services needed
+npm run test:pact
+
 # E2E tests — needs services running
 npm run dev              # start all services + UI
 npm run test:e2e         # run Playwright against localhost:5173
@@ -165,3 +168,18 @@ npm run test:e2e         # run Playwright against localhost:5173
 # E2E with Playwright UI (interactive debugging)
 npm run test:e2e:ui
 ```
+
+## How They Relate
+
+```
+Does the UI render correctly?          → Component test (Vitest + RTL)
+Will a backend change break the UI?    → Contract test (Pact)
+Does the full system work together?    → E2E test (Playwright)
+```
+
+All three can catch a bug where Service A renames `classification` to `result`:
+- Component test: won't catch it (API is mocked)
+- Pact: catches it at build time, blocks deploy via can-i-deploy
+- E2E: catches it at deploy time, after services are running
+
+Pact is the fastest feedback loop for API shape changes — it runs without services and fails in seconds. E2E is the last line of defence.
