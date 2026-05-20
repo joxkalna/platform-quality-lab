@@ -38,7 +38,6 @@ jobs:
             services/ui/node_modules
             tests/load/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
-          fail-on-cache-miss: true
 
       - name: Restore Playwright browsers
         uses: actions/cache/restore@v5
