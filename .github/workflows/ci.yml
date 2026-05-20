@@ -70,9 +70,9 @@ jobs:
             services/service-a/node_modules
             services/service-b/node_modules
             services/service-c/node_modules
+            services/ui/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            deps-
+          fail-on-cache-miss: true
 
       - name: Lint
         run: npm run lint
@@ -97,8 +97,7 @@ jobs:
             services/service-c/node_modules
             services/ui/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            deps-
+          fail-on-cache-miss: true
 
       - name: Type check
         run: |
@@ -128,8 +127,7 @@ jobs:
             services/service-b/node_modules
             services/service-c/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            deps-
+          fail-on-cache-miss: true
 
       - uses: yokawasa/action-setup-kube-tools@v0.13.5
         with:
