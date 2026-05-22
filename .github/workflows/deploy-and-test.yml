@@ -196,6 +196,9 @@ jobs:
 
       # --- Lighthouse CI gate ---
 
+      - name: Install Chrome for Lighthouse
+        run: npx puppeteer browsers install chrome
+
       - name: Run Lighthouse performance gate
         id: lighthouse
         run: |

@@ -5,9 +5,6 @@ export default defineConfig({
     root: "tests/lighthouse",
     testTimeout: 120_000,
     hookTimeout: 120_000,
-    pool: "forks",
-    poolOptions: {
-      forks: { singleFork: true },
-    },
+    sequence: { concurrent: false },
   },
 });
