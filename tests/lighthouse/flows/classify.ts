@@ -9,7 +9,6 @@ import type { Page } from "puppeteer";
 import type { UserFlow } from "lighthouse";
 
 const SELECTORS = {
-  classifySection: '::-p-text(Classify Text)',
   textInput: "textarea",
   classifyButton: '::-p-text(Classify)',
   result: ".classify-result",
@@ -25,10 +24,14 @@ export async function runClassifyFlow(
   // Cold navigation — measures full page load (LCP, CLS, TBT, FCP)
   await flow.navigate(url, { name: "cold-navigation" });
 
-  // Expand the Classify Text section
-  await page.waitForSelector(SELECTORS.classifySection);
-  await page.click(SELECTORS.classifySection);
-  await page.waitForSelector(SELECTORS.textInput, { visible: true });
+  // Expand the Classify Text section — content is conditionally rendered,
+  // so we need to click the section header to mount the textarea into the DOM
+  await page.waitForSelector(".section-header");
+  await page.evaluate(() => {
+    const headers = document.querySelectorAll(".section-header");
+    (headers[0] as HTMLElement)?.click();
+  });
+  await page.waitForSelector(SELECTORS.textInput, { timeout: 5_000 });
 
   // Type text interaction
   await flow.startTimespan({ name: "type-text" });
