@@ -2,7 +2,7 @@
  * Classify user flow — page object for Lighthouse user flow testing.
  *
  * Defines the selectors and interaction sequence for the classify journey:
- * navigate → expand section → type text → click classify → wait for result.
+ * navigate → type text → click classify → wait for result.
  */
 
 import type { Page } from "puppeteer";
@@ -10,7 +10,6 @@ import type { UserFlow } from "lighthouse";
 
 const SELECTORS = {
   textInput: "textarea",
-  classifyButton: '::-p-text(Classify)',
   result: ".classify-result",
 } as const;
 
@@ -24,14 +23,9 @@ export async function runClassifyFlow(
   // Cold navigation — measures full page load (LCP, CLS, TBT, FCP)
   await flow.navigate(url, { name: "cold-navigation" });
 
-  // Expand the Classify Text section — content is conditionally rendered,
-  // so we need to click the section header to mount the textarea into the DOM
-  await page.waitForSelector(".section-header");
-  await page.evaluate(() => {
-    const headers = document.querySelectorAll(".section-header");
-    (headers[0] as HTMLElement)?.click();
-  });
-  await page.waitForSelector(SELECTORS.textInput, { timeout: 5_000 });
+  // Wait for React to hydrate — Classify section is defaultOpen
+  // but may not be in the DOM immediately after Lighthouse navigation completes
+  await page.waitForSelector(SELECTORS.textInput, { timeout: 10_000 });
 
   // Type text interaction
   await flow.startTimespan({ name: "type-text" });
@@ -41,7 +35,6 @@ export async function runClassifyFlow(
   // Click classify button
   await flow.startTimespan({ name: "click-classify" });
   const buttons = await page.$$("button");
-  // Find the button that contains exactly "Classify" (not section headers)
   for (const btn of buttons) {
     const text = await btn.evaluate((el) => el.textContent?.trim());
     if (text === "Classify") {
