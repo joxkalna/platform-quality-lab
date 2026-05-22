@@ -36,6 +36,8 @@
     "trend:chaos": "npx tsx scripts/chaos/extract-trend.ts",
     "trend:llmops": "npx tsx tests/llmops/scripts/extract-trend.ts",
     "trend:consistency": "npx tsx tests/llmops/scripts/extract-consistency-trend.ts",
+    "trend:lighthouse": "npx tsx scripts/lighthouse/append-trend.ts",
+    "test:lighthouse": "vitest run --config tests/lighthouse/vitest.config.mts",
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.ts",
     "test:e2e:ui": "npx playwright test --config tests/e2e/playwright.config.ts --ui",
     "test:component": "cd services/ui && npm test",
@@ -54,6 +56,8 @@
     "tsx": "^4.21.0",
     "typescript-eslint": "^8.59.2",
     "@playwright/test": "^1.60.0",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "puppeteer": "^25.0.4",
+    "lighthouse": "^13.3.0"
   }
 }

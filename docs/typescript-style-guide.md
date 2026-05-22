@@ -334,14 +334,46 @@ parseUser(id, role, isAdmin, isActive);
 
 Rule of thumb:
 
-*   **Explicit on boundaries**
-*   **Inferred internally**
+*   **Explicit on boundaries** — exported functions that return data
+*   **Inferred internally** — private/local functions
+*   **Omit `Promise<void>`** — on async functions that don't return a value, `async` already communicates "returns a promise." Adding `: Promise<void>` is redundant noise. Explicit return types earn their keep when the caller needs to know the shape of the data.
 
 ```ts
+// ✅ Explicit — caller needs to know the return shape
 export const parseUser = (input: Input): ParsedUser => {
   ...
 };
+
+// ✅ Omit — async + void, nothing to communicate
+export async function runClassifyFlow(flow: UserFlow, page: Page) {
+  ...
+}
+
+// ❌ Redundant
+export async function runClassifyFlow(flow: UserFlow, page: Page): Promise<void> {
+  ...
+}
 ```
+
+### Callback parameter types — the exception
+
+When typing a **function parameter** (callback), `Promise<void>` is a constraint, not an annotation. It enforces that callers must pass an async function:
+
+```ts
+// ✅ Constraint — enforces async callback
+export async function runLighthouse(
+  flowFn: (flow: UserFlow, page: Page) => Promise<void>,
+) { ... }
+
+// ❌ Without it — accepts sync functions silently
+export async function runLighthouse(
+  flowFn: (flow: UserFlow, page: Page) => void,
+) { ... }
+```
+
+The distinction: on your own function it's redundant (TypeScript infers it). On a parameter type it's a contract (TypeScript enforces it).
+
+> **TODO (future phase):** Enforce this consistently across all services when repos are split. Currently inconsistent — some files use explicit `Promise<void>`, others don't.
 
 ***
 

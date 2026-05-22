@@ -1,0 +1,73 @@
+# Lighthouse Synthetic Monitoring
+#
+# Scheduled runs against services started locally (no Kind needed).
+# Collects Web Vitals over time, detects drift, alerts on degradation.
+#
+# This complements the CI gate in deploy-and-test.yml which blocks PRs.
+# This workflow catches gradual drift that individual PRs don't trigger.
+
+name: Lighthouse Synthetic
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd services/service-a && npm ci && cd ../..
+          cd services/service-b && npm ci && cd ../..
+          cd services/service-c && npm ci && cd ../..
+          cd services/ui && npm ci && cd ../..
+
+      - name: Start services
+        run: |
+          cd services/service-b && npx ts-node src/server.ts &
+          sleep 2
+          cd services/service-a && SERVICE_B_URL=http://localhost:3001 SERVICE_C_URL=http://localhost:3002 npx ts-node src/server.ts &
+          cd services/service-c && LLM_MOCK=true npx ts-node src/server.ts &
+          cd services/ui && npx vite --port 5173 &
+          sleep 5
+
+      - name: Wait for UI
+        run: timeout 30 bash -c 'until curl -s http://localhost:5173 > /dev/null; do sleep 1; done'
+
+      - name: Run Lighthouse
+        run: npm run test:lighthouse
+        continue-on-error: true
+
+      - name: Append trend data
+        run: npm run trend:lighthouse
+
+      - name: Detect drift
+        run: npx tsx scripts/lighthouse/detect-drift.ts
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-synthetic-report
+          path: tests/lighthouse/results/
+          if-no-files-found: ignore
+
+      - name: Commit trend data
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/dashboard/lighthouse-trend.json
+          git diff --cached --quiet || git commit -m "chore: lighthouse synthetic data [skip ci]"
+          git push
