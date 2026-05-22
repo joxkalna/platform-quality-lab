@@ -37,6 +37,15 @@ export async function runClassifyFlow(
   await flow.endTimespan();
 
   await flow.startTimespan({ name: "result-displayed" });
-  await page.waitForSelector(SELECTORS.result, { timeout: 60_000 });
+  try {
+    await page.waitForSelector(SELECTORS.result, { timeout: 60_000 });
+  } catch (err) {
+    // Capture page state for debugging
+    await page.screenshot({ path: "tests/lighthouse/results/debug-failure.png" });
+    const html = await page.content();
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync("tests/lighthouse/results/debug-page.html", html);
+    throw err;
+  }
   await flow.endTimespan();
 }
