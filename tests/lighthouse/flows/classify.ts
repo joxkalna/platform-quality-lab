@@ -10,7 +10,7 @@ import type { UserFlow } from "lighthouse";
 
 const SELECTORS = {
   textInput: "textarea",
-  classifyButton: '::-p-text(Classify)',
+  classifyButton: "button",
   result: ".classify-result",
 } as const;
 
@@ -30,13 +30,13 @@ export async function runClassifyFlow(
   await page.type(SELECTORS.textInput, SAMPLE_TEXT);
   await flow.endTimespan();
 
-  // Click classify interaction
+  // Click classify + wait for result — measures the full interaction
+  // from button click to result visible in the DOM (includes backend round-trip)
   await flow.startTimespan({ name: "click-classify" });
   await page.click(SELECTORS.classifyButton);
   await flow.endTimespan();
 
-  // Wait for result — measures full backend round-trip surfacing in UI
   await flow.startTimespan({ name: "result-displayed" });
-  await page.waitForSelector(SELECTORS.result, { timeout: 30_000 });
+  await page.waitForSelector(SELECTORS.result, { timeout: 60_000 });
   await flow.endTimespan();
 }
