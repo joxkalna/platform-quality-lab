@@ -89,7 +89,7 @@ const breachLines = Object.entries(byOwner).flatMap(([owner, items]) => [
   `*owner: ${owner}*`,
   ...items.map(
     (b) =>
-      `  • ${b.metric}: ${typeof b.value === "number" && b.value < 1 ? b.value.toFixed(3) : Math.round(b.value)}ms (budget: ${typeof b.budget === "number" && b.budget < 1 ? b.budget : Math.round(b.budget)})`
+      `  • ${b.metric}: ${b.value < 1 ? b.value.toFixed(3) : `${Math.round(b.value)}ms`} (threshold: ${b.budget < 1 ? b.budget : `${Math.round(b.budget)}ms`})`
   ),
 ]);
 
@@ -100,12 +100,12 @@ const footer = [branch(), url ? `<${url}|View report>` : ""]
 
 postToSlack(
   [
-    header("🚨 Lighthouse Budget Exceeded"),
+    header("🚨 Lighthouse Threshold Exceeded"),
     section(breachLines.join("\n")),
     divider(),
     ...(footer ? [context(`➡️ ${footer}`)] : []),
   ],
-  `🚨 Lighthouse budget exceeded: ${breaches[0].metric}`
+  `🚨 Lighthouse threshold exceeded: ${breaches[0].metric}`
 ).catch((err) => {
   console.error(`❌ ${err.message}`);
   process.exit(1);

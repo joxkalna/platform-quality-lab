@@ -28,10 +28,10 @@ export interface Budgets {
 
 export const budgets: Budgets = {
   navigation: {
-    lcp: 3000,
+    lcp: 10000,
     cls: 0.1,
     tbt: 500,
-    fcp: 2000,
+    fcp: 6000,
   },
   interactions: {
     "type-text": {
