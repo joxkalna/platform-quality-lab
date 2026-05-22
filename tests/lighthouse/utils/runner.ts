@@ -76,7 +76,10 @@ function extractNavigationMetrics(step: FlowResult.Step): NavigationMetrics {
 function extractInteractionMetrics(step: FlowResult.Step): InteractionMetrics {
   const audits = step.lhr.audits;
   return {
-    inp: requireMetric(audits, "interaction-to-next-paint"),
+    // INP is only reported when a qualifying interaction (click/type) occurs
+    // during the timespan. Falls back to 0 for timespans with no interaction
+    // (e.g. waiting for a network response). Same approach as production services.
+    inp: audits["interaction-to-next-paint"]?.numericValue ?? 0,
     tbt: requireMetric(audits, "total-blocking-time"),
     cls: requireMetric(audits, "cumulative-layout-shift"),
   };

@@ -56,11 +56,6 @@ function classifyTbt(ms: number): Status {
   return "poor";
 }
 
-function classifyInp(ms: number): Status {
-  if (ms <= 200) return "good";
-  if (ms <= 500) return "needs-improvement";
-  return "poor";
-}
 
 const classifyInpMs = results.interactions["result-displayed"]?.inp ?? 0;
 
@@ -75,7 +70,6 @@ const entry = {
   tbt_status: classifyTbt(results.navigation.tbt),
   fcp_ms: Math.round(results.navigation.fcp),
   classify_inp_ms: Math.round(classifyInpMs),
-  classify_inp_status: classifyInp(classifyInpMs),
 };
 
 const trend = existsSync(trendFile)

@@ -24,7 +24,6 @@ export async function runClassifyFlow(
   await flow.navigate(url, { name: "cold-navigation" });
 
   // Wait for React to hydrate — Classify section is defaultOpen
-  // but may not be in the DOM immediately after Lighthouse navigation completes
   await page.waitForSelector(SELECTORS.textInput, { timeout: 10_000 });
 
   // Type text interaction
@@ -46,13 +45,6 @@ export async function runClassifyFlow(
 
   // Wait for result — measures full backend round-trip surfacing in UI
   await flow.startTimespan({ name: "result-displayed" });
-  try {
-    await page.waitForSelector(SELECTORS.result, { timeout: 60_000 });
-  } catch (err) {
-    await page.screenshot({ path: "tests/lighthouse/results/debug-failure.png" });
-    const { writeFileSync } = await import("node:fs");
-    writeFileSync("tests/lighthouse/results/debug-page.html", await page.content());
-    throw err;
-  }
+  await page.waitForSelector(SELECTORS.result, { timeout: 60_000 });
   await flow.endTimespan();
 }
