@@ -202,6 +202,10 @@ jobs:
       - name: Run Lighthouse performance gate
         id: lighthouse
         run: |
+          kubectl port-forward svc/service-a 3000:3000 &
+          kubectl port-forward svc/service-b 3001:3001 &
+          kubectl port-forward svc/service-c 3002:3002 &
+          sleep 3
           LIGHTHOUSE_URL=http://localhost:5173 npm run test:lighthouse
 
       - name: Upload Lighthouse report
