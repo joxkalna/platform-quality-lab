@@ -2,15 +2,16 @@
  * Classify user flow — page object for Lighthouse user flow testing.
  *
  * Defines the selectors and interaction sequence for the classify journey:
- * navigate → type text → click classify → wait for result.
+ * navigate → expand section → type text → click classify → wait for result.
  */
 
 import type { Page } from "puppeteer";
 import type { UserFlow } from "lighthouse";
 
 const SELECTORS = {
+  classifySection: '::-p-text(Classify Text)',
   textInput: "textarea",
-  classifyButton: "button",
+  classifyButton: '::-p-text(Classify)',
   result: ".classify-result",
 } as const;
 
@@ -24,27 +25,37 @@ export async function runClassifyFlow(
   // Cold navigation — measures full page load (LCP, CLS, TBT, FCP)
   await flow.navigate(url, { name: "cold-navigation" });
 
+  // Expand the Classify Text section
+  await page.waitForSelector(SELECTORS.classifySection);
+  await page.click(SELECTORS.classifySection);
+  await page.waitForSelector(SELECTORS.textInput, { visible: true });
+
   // Type text interaction
   await flow.startTimespan({ name: "type-text" });
-  await page.waitForSelector(SELECTORS.textInput);
   await page.type(SELECTORS.textInput, SAMPLE_TEXT);
   await flow.endTimespan();
 
-  // Click classify + wait for result — measures the full interaction
-  // from button click to result visible in the DOM (includes backend round-trip)
+  // Click classify button
   await flow.startTimespan({ name: "click-classify" });
-  await page.click(SELECTORS.classifyButton);
+  const buttons = await page.$$("button");
+  // Find the button that contains exactly "Classify" (not section headers)
+  for (const btn of buttons) {
+    const text = await btn.evaluate((el) => el.textContent?.trim());
+    if (text === "Classify") {
+      await btn.click();
+      break;
+    }
+  }
   await flow.endTimespan();
 
+  // Wait for result — measures full backend round-trip surfacing in UI
   await flow.startTimespan({ name: "result-displayed" });
   try {
     await page.waitForSelector(SELECTORS.result, { timeout: 60_000 });
   } catch (err) {
-    // Capture page state for debugging
     await page.screenshot({ path: "tests/lighthouse/results/debug-failure.png" });
-    const html = await page.content();
     const { writeFileSync } = await import("node:fs");
-    writeFileSync("tests/lighthouse/results/debug-page.html", html);
+    writeFileSync("tests/lighthouse/results/debug-page.html", await page.content());
     throw err;
   }
   await flow.endTimespan();
