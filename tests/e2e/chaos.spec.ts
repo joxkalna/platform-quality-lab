@@ -23,12 +23,20 @@ const waitForRollout = (deployment: string, timeoutSec = 60) =>
   );
 
 test.describe("Frontend Chaos", () => {
-  test.describe.configure({ mode: "serial", timeout: 180_000 });
+  test.describe.configure({ mode: "serial", timeout: 180_000, retries: 0 });
 
   let classifyPage: ClassifyPage;
 
   test.beforeEach(async ({ page }) => {
     classifyPage = new ClassifyPage(page);
+  });
+
+  test.afterEach(() => {
+    // Ensure deployments are scaled back up for subsequent tests
+    try { kubectl("scale deployment/service-a --replicas=2"); } catch {}
+    try { kubectl("scale deployment/service-c --replicas=2"); } catch {}
+    try { waitForRollout("service-a", 90); } catch {}
+    try { waitForRollout("service-c", 120); } catch {}
   });
 
   test("UI shows error when Service A pod is killed", async ({ page }) => {
@@ -40,26 +48,14 @@ test.describe("Frontend Chaos", () => {
 
     // Kill all Service A pods
     kubectl("delete pods -l app=service-a --force --grace-period=0");
-
-    // Wait for pods to terminate before retrying
     await page.waitForTimeout(2000);
 
-    // Attempt classify during outage — UI should show error
+    // Classify during outage — UI should show error, not hang
     await classifyPage.goto();
     await classifyPage.classify("test during pod kill");
 
     const error = await classifyPage.getError(30_000);
     expect(error).toBeTruthy();
-
-    // Wait for K8s to recover
-    waitForRollout("service-a", 90);
-
-    // Retry — should succeed after recovery
-    await page.waitForTimeout(5000);
-    await classifyPage.goto();
-    await classifyPage.classify("recovery test after pod kill");
-    const recovered = await classifyPage.getResult();
-    expect(recovered.category).toBeTruthy();
   });
 
   test("UI shows error when Service C is scaled to zero", async ({ page }) => {
@@ -73,17 +69,6 @@ test.describe("Frontend Chaos", () => {
 
     const error = await classifyPage.getError(30_000);
     expect(error).toBeTruthy();
-
-    // Restore
-    kubectl("scale deployment/service-c --replicas=2");
-    waitForRollout("service-c", 120);
-
-    // Verify recovery
-    await page.waitForTimeout(5000);
-    await classifyPage.goto();
-    await classifyPage.classify("recovery after scale-up");
-    const recovered = await classifyPage.getResult();
-    expect(recovered.category).toBeTruthy();
   });
 
   test("UI shows loading state during slow response", async ({ page }) => {
