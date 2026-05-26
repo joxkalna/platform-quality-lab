@@ -7,4 +7,5 @@ logs/
 scripts/chaos/reports/
 tests/load/results/
 tests/llmops/results/
+tests/lighthouse/results/
 

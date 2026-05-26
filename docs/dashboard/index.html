@@ -49,6 +49,7 @@
 
   <div class="tabs">
     <button class="active" data-tab="performance">Performance</button>
+    <button data-tab="webvitals">Web Vitals</button>
     <button data-tab="chaos">Chaos</button>
     <button data-tab="llmops">LLMOps</button>
   </div>
@@ -76,6 +77,39 @@
       <div class="card">
         <h2>Failed Requests (%)</h2>
         <canvas id="errorChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Web Vitals Tab -->
+  <div class="tab-content" id="tab-webvitals">
+    <div class="grid">
+      <div class="card">
+        <h2>LCP — Largest Contentful Paint (ms)</h2>
+        <canvas id="lcpChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>FCP — First Contentful Paint (ms)</h2>
+        <canvas id="fcpChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>CLS — Cumulative Layout Shift</h2>
+        <canvas id="clsChart"></canvas>
+      </div>
+      <div class="card">
+        <h2>TBT — Total Blocking Time (ms)</h2>
+        <canvas id="tbtChart"></canvas>
+      </div>
+      <div class="card full-width">
+        <h2>Classify Interaction — INP (ms)</h2>
+        <canvas id="classifyInpChart"></canvas>
+      </div>
+      <div class="card full-width">
+        <h2>Run History</h2>
+        <table class="data-table">
+          <thead><tr><th>Date</th><th>Branch</th><th>LCP</th><th>FCP</th><th>CLS</th><th>TBT</th><th>Classify INP</th></tr></thead>
+          <tbody id="lighthouseTable"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -135,6 +169,7 @@
 
   <script>
     let perfData = [];
+    let lighthouseData = [];
     let chaosData = [];
     let llmopsData = [];
     let consistencyData = [];
@@ -354,6 +389,7 @@
       renderChaos(filteredChaos);
       renderLLMOps(filteredLLMOps);
       renderConsistency(filteredConsistency);
+      renderLighthouse(filterByDays(lighthouseData, selectedDays));
 
       const label = selectedDays === 0 ? 'Showing all data' : `Showing last ${selectedDays} days`;
       document.getElementById('rangeLabel').textContent = label;
@@ -387,11 +423,82 @@
       } catch { return []; }
     }
 
-    Promise.all([load('trend.json'), load('chaos-trend.json'), load('llmops-trend.json'), load('consistency-trend.json')]).then(([perf, chaos, llmops, consistency]) => {
+    function renderLighthouse(data) {
+      const tbody = document.getElementById('lighthouseTable');
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No Lighthouse data in this range.</td></tr>';
+        return;
+      }
+
+      const labels = data.map(d => d.date);
+
+      charts.lcp = new Chart(document.getElementById('lcpChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ label: 'LCP', data: data.map(d => d.lcp_ms), borderColor: '#58a6ff', tension: 0.3, pointRadius: 3 }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, title: { display: true, text: 'ms', color: '#8b949e' } } } },
+      });
+
+      charts.fcp = new Chart(document.getElementById('fcpChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ label: 'FCP', data: data.map(d => d.fcp_ms), borderColor: '#f78166', tension: 0.3, pointRadius: 3 }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, title: { display: true, text: 'ms', color: '#8b949e' } } } },
+      });
+
+      charts.cls = new Chart(document.getElementById('clsChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ label: 'CLS', data: data.map(d => d.cls), borderColor: '#a371f7', tension: 0.3, pointRadius: 3 }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, title: { display: true, text: 'score', color: '#8b949e' } } } },
+      });
+
+      charts.tbt = new Chart(document.getElementById('tbtChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ label: 'TBT', data: data.map(d => d.tbt_ms), borderColor: '#3fb950', tension: 0.3, pointRadius: 3 }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, title: { display: true, text: 'ms', color: '#8b949e' } } } },
+      });
+
+      charts.classifyInp = new Chart(document.getElementById('classifyInpChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ label: 'Classify INP', data: data.map(d => d.classify_inp_ms), borderColor: '#f85149', tension: 0.3, pointRadius: 3 }],
+        },
+        options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, min: 0, title: { display: true, text: 'ms', color: '#8b949e' } } } },
+      });
+
+      tbody.innerHTML = data.slice().reverse().map(d => {
+        const lcpClass = d.lcp_status === 'good' ? 'pass' : d.lcp_status === 'poor' ? 'fail' : '';
+        const clsClass = d.cls_status === 'good' ? 'pass' : d.cls_status === 'poor' ? 'fail' : '';
+        const tbtClass = d.tbt_status === 'good' ? 'pass' : d.tbt_status === 'poor' ? 'fail' : '';
+        return `<tr>
+          <td>${d.date}</td>
+          <td>${d.branch}</td>
+          <td class="${lcpClass}">${d.lcp_ms}ms</td>
+          <td>${d.fcp_ms}ms</td>
+          <td class="${clsClass}">${d.cls}</td>
+          <td class="${tbtClass}">${d.tbt_ms}ms</td>
+          <td>${d.classify_inp_ms}ms</td>
+        </tr>`;
+      }).join('');
+    }
+
+    Promise.all([load('trend.json'), load('chaos-trend.json'), load('llmops-trend.json'), load('consistency-trend.json'), load('lighthouse-trend.json')]).then(([perf, chaos, llmops, consistency, lighthouse]) => {
       perfData = perf;
       chaosData = chaos;
       llmopsData = llmops;
       consistencyData = consistency;
+      lighthouseData = lighthouse;
       render();
     });
   </script>

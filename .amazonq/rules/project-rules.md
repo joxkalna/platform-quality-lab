@@ -125,6 +125,8 @@ tests/<domain>/
 - App factory pattern (config as parameter, not env vars at module level)
 - Zod config for all services (currently only Service C)
 - Package extraction after Phase 7 (`@joxkalna/platform-quality-utils`)
+- Refactor `scripts/notify/` — all scripts use top-level procedural code. Extract into callable functions (testable, composable) with a thin CLI entry point
+- Consistent `Promise<void>` removal across all services (see typescript-style-guide.md)
 
 ## Reference Docs
 - `docs/phase6-reference.md` — Phase 6 implementation details
