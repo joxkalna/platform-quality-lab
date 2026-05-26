@@ -34,6 +34,8 @@ npm run test:load:smoke     # k6 smoke test (30s, validates endpoints)
 npm run test:load:regression # k6 regression test (3.5 min, branch feedback)
 npm run test:load:load      # k6 load test (5 min, main baseline)
 npm run test:load:stress    # k6 stress test (find breaking points)
+npm run test:load:browser   # k6 browser test (Chromium + HTTP load combined)
+npm run test:e2e:chaos      # frontend chaos (Playwright + pod kill/scale-down)
 npm run test:llmops             # LLMOps full suite (golden set + consistency)
 npm run test:llmops:consistency # consistency tests only (5 runs per case)
 npm run test:load:analyze       # compare results against baseline
@@ -105,6 +107,8 @@ install → lint ──────────┐
                                ├── LLMOps consistency (gates)
                                ├── k6 regression/load test (non-blocking)
                                ├── Chaos experiments (main only)
+                               ├── k6 browser test (main only)
+                               ├── Frontend chaos (main only)
                                └── Teardown (always)
 ```
 
@@ -118,7 +122,7 @@ install → lint ──────────┐
 - [x] Phase 6: AI service (Service C + Pact evolution + k6 load testing)
 - [x] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
 - [x] Phase 8: API collections (Bruno — exploratory testing, environment management)
-- [ ] Phase 9: UI + frontend quality (React UI for classify, Pact frontend consumer, Lighthouse CI, k6 browser, Playwright E2E)
+- [x] Phase 9: UI + frontend quality (React UI for classify, Pact frontend consumer, Lighthouse CI, k6 browser, Playwright E2E)
 
 ## Documentation
 

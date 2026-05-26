@@ -7,7 +7,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "types": ["k6"]
+    "types": ["k6", "k6/browser"]
   },
   "include": ["src/**/*.ts"]
 }

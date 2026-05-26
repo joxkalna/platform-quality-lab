@@ -1,6 +1,7 @@
 import { dataFlowScenario } from "./scenarios/data-flow-scn.ts";
 import { fullJourneyScenario } from "./scenarios/full-journey-scn.ts";
 import { healthCheckScenario } from "./scenarios/health-check-scn.ts";
+import { classifyBrowserScenario } from "./scenarios/classify-browser-scn.ts";
 import { TestConfig } from "./types.ts";
 import { info } from "./utils/logger.ts";
 
@@ -30,4 +31,8 @@ export const fullJourney = (testConfig: TestConfig) => {
 // k6 requires a default export as the main test entry point
 export default (testConfig: TestConfig) => {
   fullJourneyScenario(testConfig);
+};
+
+export const classifyBrowser = () => {
+  classifyBrowserScenario();
 };

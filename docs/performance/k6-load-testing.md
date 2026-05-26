@@ -407,6 +407,17 @@ This is deferred to after MR 3 — it requires both k6 and chaos to be stable in
 
 This is also where Service C could appear in load testing — not testing the LLM itself, but testing whether Service A's `/classify` proxy degrades gracefully when Service C is under chaos pressure while A and B are under load.
 
+## Browser Testing
+
+k6 browser module runs real Chromium alongside HTTP scenarios. Full docs: [k6-browser-testing.md](k6-browser-testing.md).
+
+Key points:
+- Browser scenarios live in `scenarios/` alongside HTTP scenarios (same 3-layer pattern)
+- JSON configs compose HTTP + browser scenarios together
+- Custom metrics prefixed `browser_` for independent thresholds
+- Runs on main only, non-blocking
+- Frontend chaos (Playwright + kubectl) is a separate concern — tests UI error handling, not performance
+
 ## Local Development
 
 ### Prerequisites

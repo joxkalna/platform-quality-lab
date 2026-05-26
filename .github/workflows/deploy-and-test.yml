@@ -305,6 +305,27 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: ./scripts/chaos/latency-injection.sh
 
+      # --- k6 browser test (main only) ---
+      # Runs real Chromium alongside HTTP load to measure frontend
+      # performance under concurrent backend pressure.
+      # Reference: https://grafana.com/docs/k6/latest/using-k6-browser/
+
+      - name: Run k6 browser test
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          UI_URL=http://localhost:5173 npm run test:load:browser
+
+      # --- Frontend chaos (main only) ---
+      # Playwright assertions during backend failure — verifies UI
+      # shows errors gracefully and recovers after K8s self-heals.
+
+      - name: Run frontend chaos tests
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          BASE_URL=http://localhost:5173 npm run test:e2e:chaos
+
       - name: Chaos experiment summary
         if: always() && github.ref == 'refs/heads/main'
         run: npx tsx scripts/chaos/render-summary.ts >> $GITHUB_STEP_SUMMARY

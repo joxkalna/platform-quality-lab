@@ -38,18 +38,8 @@ UI: `services/ui/` — Vite + React + Tailwind. API client layer in `src/api/` (
 - **Phase 6** ✅ AI service, Pact evolution, k6 load testing, Slack notifications, dashboard
 - **Phase 7** ✅ LLMOps — golden sets, accuracy thresholds, consistency tests (MR 3 deferred: dashboard trends after 10+ main runs)
 - **Phase 8** ✅ API collections (Bruno — exploratory testing, environment management)
-- **Phase 9** 🔄 UI + frontend quality
+- **Phase 9** ✅ UI + frontend quality
 - **Phase 10** 🔜 Production deployment (Raspberry Pi, k3s, Cloudflare Tunnel)
-
-## Current Phase: 9 — UI + Frontend Quality
-Plan: `docs/roadmap/phase9-ui-frontend-quality.md`
-
-### Phase 9 Status
-- [x] MR 1 — React UI scaffold + mock mode + deploy scripts
-- [ ] MR 2 — Frontend Pact consumer (UI → Service A `/classify` contract)
-- [ ] MR 3 — Playwright E2E (happy path, error states)
-- [ ] MR 4 — Lighthouse CI (Core Web Vitals budgets)
-- [ ] MR 5 — k6 browser + frontend chaos
 
 ## Commands
 
@@ -68,6 +58,8 @@ Plan: `docs/roadmap/phase9-ui-frontend-quality.md`
 - `npm run test:load:regression` — k6 regression (3.5 min)
 - `npm run test:load:load` — k6 load (5 min)
 - `npm run test:load:stress` — k6 stress (find breaking points)
+- `npm run test:load:browser` — k6 browser (Chromium + HTTP combined)
+- `npm run test:e2e:chaos` — frontend chaos (Playwright + backend failure)
 - `npm run test:load:analyze` — compare against baseline
 - `npm run validate:manifests` — K8s manifest policy
 - `npm run lint` — ESLint + resilience rules
@@ -93,6 +85,8 @@ Plan: `docs/roadmap/phase9-ui-frontend-quality.md`
 - k6: native TypeScript, 3-layer architecture, 10% regression threshold
 - Slack webhooks for alerts (no bot framework)
 - GitHub Pages dashboard (artifact-as-database pattern)
+- k6 browser: runs real Chromium alongside HTTP load — measures frontend under backend pressure
+- Frontend chaos: Playwright asserts UI error/recovery states during pod kill and scale-down
 - UI: Vite proxy handles CORS locally, all fetch goes through `/api` prefix
 - UI styles: Tailwind utilities extracted to `index.css` via `@apply`, components use semantic class names
 
