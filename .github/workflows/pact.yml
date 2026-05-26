@@ -18,14 +18,14 @@ jobs:
   pact:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
 
       - name: Restore node_modules
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v4
         with:
           path: |
             node_modules

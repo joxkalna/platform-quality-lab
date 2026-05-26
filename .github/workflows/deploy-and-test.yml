@@ -21,14 +21,14 @@ jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
 
       - name: Restore node_modules
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v4
         with:
           path: |
             node_modules
@@ -40,7 +40,7 @@ jobs:
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - name: Restore Playwright browsers
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('**/package-lock.json') }}
@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload k6 results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: k6-results
           path: tests/load/results/
@@ -188,7 +188,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always() && steps.e2e.outcome != 'skipped'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
@@ -206,7 +206,7 @@ jobs:
 
       - name: Upload Lighthouse report
         if: always() && steps.lighthouse.outcome != 'skipped'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: lighthouse-report
           path: tests/lighthouse/results/
@@ -237,7 +237,7 @@ jobs:
 
       - name: Upload LLMOps results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: llmops-results
           path: tests/llmops/results/
@@ -274,7 +274,7 @@ jobs:
 
       - name: Upload k6 load results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: k6-load-results
           path: tests/load/results/
@@ -339,7 +339,7 @@ jobs:
 
       - name: Upload chaos reports
         if: always() && github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: chaos-reports
           path: scripts/chaos/reports/

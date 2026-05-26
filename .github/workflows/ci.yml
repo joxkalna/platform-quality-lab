@@ -16,9 +16,9 @@ jobs:
   install:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -35,7 +35,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Cache node_modules
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v4
         with:
           path: |
             node_modules
@@ -47,7 +47,7 @@ jobs:
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
       - name: Cache Playwright browsers
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ hashFiles('**/package-lock.json') }}
@@ -56,14 +56,14 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Restore node_modules
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v4
         with:
           path: |
             node_modules
@@ -81,14 +81,14 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Restore node_modules
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v4
         with:
           path: |
             node_modules
@@ -112,14 +112,14 @@ jobs:
     needs: install
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Restore node_modules
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v4
         with:
           path: |
             node_modules
@@ -171,15 +171,15 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           ref: main
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@v4
         with:
           path: docs/dashboard/
 
       - name: Deploy to GitHub Pages
         id: deploy
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@v4
