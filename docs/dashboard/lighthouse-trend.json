@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "date": "2026-05-26",
+    "branch": "main",
+    "lcp_ms": 9015,
+    "lcp_status": "poor",
+    "cls": 0,
+    "cls_status": "good",
+    "tbt_ms": 8,
+    "tbt_status": "good",
+    "fcp_ms": 5411,
+    "classify_inp_ms": 0
+  }
+]
