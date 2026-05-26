@@ -23,7 +23,7 @@ const waitForRollout = (deployment: string, timeoutSec = 60) =>
   );
 
 test.describe("Frontend Chaos", () => {
-  test.describe.configure({ mode: "serial" });
+  test.describe.configure({ mode: "serial", timeout: 180_000 });
 
   let classifyPage: ClassifyPage;
 
@@ -41,18 +41,21 @@ test.describe("Frontend Chaos", () => {
     // Kill all Service A pods
     kubectl("delete pods -l app=service-a --force --grace-period=0");
 
+    // Wait for pods to terminate before retrying
+    await page.waitForTimeout(2000);
+
     // Attempt classify during outage — UI should show error
     await classifyPage.goto();
     await classifyPage.classify("test during pod kill");
 
-    const error = await classifyPage.getError();
+    const error = await classifyPage.getError(30_000);
     expect(error).toBeTruthy();
 
     // Wait for K8s to recover
     waitForRollout("service-a", 90);
 
     // Retry — should succeed after recovery
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000);
     await classifyPage.goto();
     await classifyPage.classify("recovery test after pod kill");
     const recovered = await classifyPage.getResult();
@@ -64,10 +67,11 @@ test.describe("Frontend Chaos", () => {
     kubectl("scale deployment/service-c --replicas=0");
     kubectl("rollout status deployment/service-c --timeout=30s");
 
+    await page.waitForTimeout(2000);
     await classifyPage.goto();
     await classifyPage.classify("test with no downstream");
 
-    const error = await classifyPage.getError();
+    const error = await classifyPage.getError(30_000);
     expect(error).toBeTruthy();
 
     // Restore
