@@ -28,6 +28,8 @@
     "test:load:regression": "cd tests/load && k6 run src/index.ts --config src/config/regression-test.json",
     "test:load:load": "cd tests/load && k6 run src/index.ts --config src/config/load-test.json",
     "test:load:stress": "cd tests/load && k6 run src/index.ts --config src/config/stress-test.json",
+    "test:load:browser": "cd tests/load && K6_BROWSER_ENABLED=true k6 run src/index.ts --config src/config/browser-test.json",
+    "test:e2e:chaos": "npx playwright test --config tests/e2e/playwright.config.ts chaos.spec.ts",
     "test:llmops": "vitest run --config tests/llmops/vitest.config.mts",
     "test:llmops:consistency": "vitest run --config tests/llmops/vitest.consistency.config.mts",
     "test:load:analyze": "cd tests/load && npx tsx scripts/compare-summary.ts",
