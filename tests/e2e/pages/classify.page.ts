@@ -31,8 +31,8 @@ export class ClassifyPage {
     };
   }
 
-  async getError() {
-    await this.error.waitFor({ state: "visible" });
+  async getError(timeout = 60_000) {
+    await this.error.waitFor({ state: "visible", timeout });
     return this.error.textContent();
   }
 
