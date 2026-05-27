@@ -56,6 +56,12 @@
 | Doc | What it covers |
 |-----|---------------|
 | [roadmap/phase9-ui-frontend-quality.md](roadmap/phase9-ui-frontend-quality.md) | Phase 9 plan — React UI, Pact, Lighthouse CI, k6 browser, Playwright E2E |
+| [roadmap/phase11-production-hardening.md](roadmap/phase11-production-hardening.md) | Phase 11 plan — Biome, strict tsconfig, shared vitest base, Zod, structured logging, graceful shutdown |
+
+## Playbook
+| Doc | What it covers |
+|-----|---------------|
+| [scaling-strategy.md](scaling-strategy.md) | Three horizons for growing from repo collection to reusable platform toolkit |
 
 ## Reference
 | Doc | What it covers |

@@ -20,3 +20,12 @@ export type HealthResponse = {
   status: string;
   service: string;
 };
+
+export type AgentResponse = {
+  source: string;
+  agent: {
+    response: string;
+    intent: string;
+    confidence: number;
+  };
+};

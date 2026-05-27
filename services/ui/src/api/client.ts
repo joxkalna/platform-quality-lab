@@ -1,4 +1,4 @@
-import type { ClassifyResponse, DataResponse, HealthResponse } from "./types";
+import type { AgentResponse, ClassifyResponse, DataResponse, HealthResponse } from "./types";
 
 const BASE_URL = "/api";
 
@@ -12,6 +12,21 @@ export async function classifyText(text: string): Promise<ClassifyResponse> {
 
   if (!res.ok) {
     throw new Error(`Classification failed: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+export async function sendMessage(message: string): Promise<AgentResponse> {
+  const res = await fetch(`${BASE_URL}/agent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Agent request failed: ${res.status}`);
   }
 
   return res.json();

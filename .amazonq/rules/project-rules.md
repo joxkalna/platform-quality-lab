@@ -40,6 +40,7 @@ UI: `services/ui/` — Vite + React + Tailwind. API client layer in `src/api/` (
 - **Phase 8** ✅ API collections (Bruno — exploratory testing, environment management)
 - **Phase 9** ✅ UI + frontend quality
 - **Phase 10** 🔜 Production deployment (Raspberry Pi, k3s, Cloudflare Tunnel)
+- **Phase 11** 🔜 Production hardening (Biome, strict tsconfig, shared vitest base, Zod everywhere, structured logging, graceful shutdown, request tracing)
 
 ## Commands
 
@@ -122,7 +123,10 @@ tests/<domain>/
 - Refactor `scripts/notify/` — all scripts use top-level procedural code. Extract into callable functions (testable, composable) with a thin CLI entry point
 - Consistent `Promise<void>` removal across all services (see typescript-style-guide.md)
 
+> **Note:** App factory pattern, Zod config for all services, structured logging, graceful shutdown, and strict tsconfig are now tracked in [Phase 11](docs/roadmap/phase11-production-hardening.md).
+
 ## Reference Docs
+- `docs/scaling-strategy.md` — Three horizons for growing the platform quality toolkit
 - `docs/phase6-reference.md` — Phase 6 implementation details
 - `docs/testing/chaos-log.md` — Phase 4 chaos experiment log
 - `docs/pact/` — all Pact documentation
@@ -130,4 +134,5 @@ tests/<domain>/
 - `docs/llmops/phase7-plan.md` — Phase 7 implementation plan
 - `docs/llmops/LLM-general-notes.md` — LLM patterns (agents, routing, parallelization)
 - `docs/roadmap/phase9-ui-frontend-quality.md` — Phase 9 plan
+- `docs/roadmap/phase11-production-hardening.md` — Phase 11 plan (Biome, strict TS, logging, shutdown)
 - `bruno-collection/README.md` — Bruno API collection docs

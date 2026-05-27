@@ -123,6 +123,8 @@ install → lint ──────────┐
 - [x] Phase 7: LLMOps (golden sets, accuracy thresholds, evaluation pipelines, consistency tests)
 - [x] Phase 8: API collections (Bruno — exploratory testing, environment management)
 - [x] Phase 9: UI + frontend quality (React UI for classify, Pact frontend consumer, Lighthouse CI, k6 browser, Playwright E2E)
+- [ ] Phase 10: Production deployment (Raspberry Pi, k3s, Cloudflare Tunnel)
+- [ ] Phase 11: Production hardening (Biome, strict tsconfig, shared vitest base, Zod everywhere, structured logging, graceful shutdown, request tracing)
 
 ## Documentation
 

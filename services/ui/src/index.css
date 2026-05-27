@@ -130,4 +130,48 @@
   .canvas-bg {
     @apply absolute inset-0 w-full h-full opacity-30;
   }
+
+  .agent-messages {
+    @apply bg-gray-900 rounded-md p-4 min-h-[200px] max-h-[400px] overflow-y-auto space-y-3;
+  }
+
+  .agent-empty {
+    @apply text-gray-500 text-sm italic;
+  }
+
+  .agent-message {
+    @apply rounded-md p-3;
+  }
+
+  .agent-message--user {
+    @apply bg-blue-900/30 border border-blue-800/40;
+  }
+
+  .agent-message--agent {
+    @apply bg-gray-800 border border-gray-700;
+  }
+
+  .agent-message-role {
+    @apply text-xs font-medium text-gray-400 uppercase tracking-wide;
+  }
+
+  .agent-message-content {
+    @apply text-gray-100 text-sm mt-1;
+  }
+
+  .agent-message-meta {
+    @apply text-xs text-gray-500 mt-1 inline-block;
+  }
+
+  .agent-typing {
+    @apply text-gray-400 animate-pulse;
+  }
+
+  .agent-input-row {
+    @apply flex gap-2 mt-3;
+  }
+
+  .agent-input {
+    @apply flex-1 bg-gray-900 border border-gray-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500;
+  }
 }

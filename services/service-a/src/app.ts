@@ -54,3 +54,25 @@ app.post("/classify", async (req, res) => {
     res.status(502).json({ error: "Failed to reach service-c" });
   }
 });
+
+app.post("/agent", async (req, res) => {
+  const { message } = req.body;
+
+  if (!message || typeof message !== "string") {
+    res.status(400).json({ error: "Request body must include a 'message' field (string)" });
+    return;
+  }
+
+  try {
+    const response = await fetch(`${SERVICE_C_URL}/agent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+      signal: AbortSignal.timeout(30000),
+    });
+    const data = await response.json();
+    res.json({ source: "service-a", agent: data });
+  } catch {
+    res.status(502).json({ error: "Failed to reach agent service" });
+  }
+});

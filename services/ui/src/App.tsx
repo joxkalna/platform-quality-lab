@@ -1,3 +1,4 @@
+import { Agent } from "./components/Agent/Agent";
 import Classify from "./components/Classify/Classify";
 import DataPanel from "./components/DataPanel/DataPanel";
 import HealthStatus from "./components/HealthStatus/HealthStatus";
@@ -13,7 +14,11 @@ const App = () => (
     </header>
 
     <div className="space-y-4">
-      <Section title="Classify Text" defaultOpen>
+      <Section title="Agent" defaultOpen>
+        <Agent />
+      </Section>
+
+      <Section title="Classify Text">
         <Classify />
       </Section>
 
