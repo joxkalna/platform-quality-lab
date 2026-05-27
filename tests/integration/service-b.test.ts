@@ -1,26 +1,29 @@
-import axios from "axios";
-import { describe, it, expect } from "vitest";
-import { SERVICE_B_URL } from "./config";
+import { config } from './config'
+import { EXPECTED_HEALTH } from './fixtures/payloads'
+import { createApiClient } from './utils/api-client'
 
-describe("Service B", () => {
-  it("GET /health — returns healthy", async () => {
-    const response = await axios.get(`${SERVICE_B_URL}/health`);
+const api = createApiClient(config.serviceB)
 
-    expect(response.status).toBe(200);
-    expect(response.data).toMatchObject({
-      status: "ok",
-      service: "service-b",
-    });
-  });
+describe('Service B', () => {
+  describe('GET /health', () => {
+    it('returns healthy status', async () => {
+      const response = await api.get('/health')
 
-  it("GET /info — returns service data", async () => {
-    const response = await axios.get(`${SERVICE_B_URL}/info`);
+      expect(response.status).toBe(200)
+      expect(response.data).toMatchObject(EXPECTED_HEALTH.serviceB)
+    })
+  })
 
-    expect(response.status).toBe(200);
-    expect(response.data).toMatchObject({
-      service: "service-b",
-      data: { version: "1.0.0" },
-    });
-    expect(response.data.timestamp).toEqual(expect.any(Number));
-  });
-});
+  describe('GET /info', () => {
+    it('returns service data with version and timestamp', async () => {
+      const response = await api.get('/info')
+
+      expect(response.status).toBe(200)
+      expect(response.data).toMatchObject({
+        service: 'service-b',
+        data: { version: '1.0.0' },
+      })
+      expect(response.data.timestamp).toEqual(expect.any(Number))
+    })
+  })
+})
