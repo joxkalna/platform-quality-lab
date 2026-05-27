@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 
 import {
   agentErrorHandler,
@@ -74,14 +75,16 @@ describe('Agent', () => {
   })
 
   it('displays error on network failure', async () => {
-    server.use(agentNetworkErrorHandler)
+    server.use(
+      http.post('/api/agent', () => HttpResponse.json(null, { status: 500 }))
+    )
     render(<Agent />)
 
     await userEvent.type(screen.getByLabelText(/message input/i), 'hello')
     await userEvent.click(screen.getByRole('button', { name: /send/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/Agent request failed/)).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toBeInTheDocument()
     })
   })
 

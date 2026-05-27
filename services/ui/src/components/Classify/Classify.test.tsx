@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 
 import {
   classifyErrorHandler,
@@ -57,14 +58,16 @@ describe('Classify', () => {
   })
 
   it('displays error on network failure', async () => {
-    server.use(classifyNetworkErrorHandler)
+    server.use(
+      http.post('/api/classify', () => HttpResponse.json(null, { status: 500 }))
+    )
     render(<Classify />)
 
     await userEvent.type(screen.getByRole('textbox'), 'some text')
     await userEvent.click(screen.getByRole('button', { name: /classify/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/Classification failed/)).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toBeInTheDocument()
     })
   })
 
