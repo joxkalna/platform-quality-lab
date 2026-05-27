@@ -12,6 +12,14 @@ on:
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run against'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
 
 jobs:
   monitor:
@@ -74,3 +82,5 @@ jobs:
           git add docs/dashboard/lighthouse-trend.json
           git diff --cached --quiet || git commit -m "chore: lighthouse synthetic data [skip ci]"
           git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
