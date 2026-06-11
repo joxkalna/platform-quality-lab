@@ -229,6 +229,16 @@ jobs:
           mkdir -p tests/llmops/results
           SERVICE_C_URL=http://localhost:3002 npm run test:llmops
 
+      - name: Run LLMOps regression analysis
+        continue-on-error: true
+        run: npm run test:llmops:analyze
+
+      - name: Slack — notify on LLMOps accuracy regression
+        continue-on-error: true
+        run: npm run test:llmops:notify
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
       # --- LLMOps consistency (stability gate) ---
 
       - name: Run LLMOps consistency tests
@@ -364,6 +374,13 @@ jobs:
         if: always()
         continue-on-error: true
         run: npm run trend:llmops
+
+      - name: Detect LLMOps accuracy drift
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: npm run test:llmops:drift
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Extract consistency trend
         if: always()
