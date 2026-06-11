@@ -151,7 +151,7 @@ jobs:
 
   deploy-and-test:
     needs: [lint, typecheck, validate-k8s, pact]
-    if: "!failure() && !cancelled()"
+    if: always() && !failure() && !cancelled()
     permissions:
       contents: write
     uses: ./.github/workflows/deploy-and-test.yml
@@ -162,18 +162,22 @@ jobs:
 
   deploy-dashboard:
     needs: deploy-and-test
-    if: github.ref == 'refs/heads/main'
+    if: always() && github.ref == 'refs/heads/main' && needs.deploy-and-test.result == 'success'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pages: write
       id-token: write
+      actions: read
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Download dashboard data
+        uses: actions/download-artifact@v4
         with:
-          ref: main
+          name: dashboard-data
+          path: docs/dashboard/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
