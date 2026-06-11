@@ -10,13 +10,13 @@ import { postToSlack, header, section, context, pipelineUrl, branch } from "../n
 
 const DRIFT_THRESHOLD_PERCENT = 10;
 
-interface TrendEntry {
+type TrendEntry = {
   date: string;
   branch: string;
   model: string;
   accuracy: number;
   rejections: { count: number };
-}
+};
 
 const trendFile = resolve(__dirname, "..", "..", "docs", "dashboard", "llmops-trend.json");
 

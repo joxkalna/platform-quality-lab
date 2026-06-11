@@ -7,30 +7,30 @@
 import * as fs from "fs";
 import * as path from "path";
 
-interface Evaluation {
+type Evaluation = {
   model: string;
   totalCases: number;
   passed: number;
   accuracy: number;
   perCategory: Record<string, { total: number; passed: number; accuracy: number }>;
   failures: { actual: string }[];
-}
+};
 
-interface Baseline {
+type Baseline = {
   baseline: {
     accuracy: number;
     perCategory: Record<string, number>;
     maxRejections: number;
   };
-}
+};
 
-interface ComparisonResult {
+type ComparisonResult = {
   metric: string;
   baselineValue: string;
   currentValue: string;
   diffPercent: number;
   exceeded: boolean;
-}
+};
 
 const THRESHOLD = 10;
 

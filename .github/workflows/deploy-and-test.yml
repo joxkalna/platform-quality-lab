@@ -20,6 +20,9 @@ on:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref == 'refs/heads/main' && 'dashboard-data-main' || github.run_id }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -360,6 +363,10 @@ jobs:
       # Git is the database — one commit per main pipeline run.
       # [skip ci] prevents infinite loop.
 
+      - name: Sync dashboard base
+        if: always() && github.ref == 'refs/heads/main'
+        run: git pull --rebase origin main
+
       - name: Extract performance trend
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
@@ -399,8 +406,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json docs/dashboard/llmops-trend.json docs/dashboard/consistency-trend.json docs/dashboard/lighthouse-trend.json
-          git diff --cached --quiet || git commit -m "chore: update dashboard data [skip ci]"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update dashboard data [skip ci]"
+            git push origin HEAD:main
+          fi
 
       # --- Teardown ---
 

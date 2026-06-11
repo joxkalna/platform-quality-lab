@@ -7,20 +7,20 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { postToSlack, header, section, context, pipelineUrl, branch } from "./slack";
 
-interface Evaluation {
+type Evaluation = {
   model: string;
   accuracy: number;
   perCategory: Record<string, { accuracy: number }>;
   failures: { actual: string }[];
 }
 
-interface Baseline {
+type Baseline = {
   baseline: {
     accuracy: number;
     perCategory: Record<string, number>;
     maxRejections: number;
   };
-}
+};
 
 const evaluationFile = resolve(__dirname, "..", "..", "tests", "llmops", "results", "evaluation.json");
 const baselineFile = resolve(__dirname, "..", "..", "tests", "llmops", "baseline.json");
