@@ -1,0 +1,21 @@
+{
+  "type": "llmops",
+  "environment": "kind-ci",
+  "model": "llama3.2:1b",
+  "totalCases": 36,
+  "baseline": {
+    "accuracy": 0.75,
+    "perCategory": {
+      "critical": 0.7,
+      "warning": 0.55,
+      "info": 0.65,
+      "ok": 0.85
+    },
+    "maxRejections": 0
+  },
+  "source": {
+    "branch": "main",
+    "date": "2026-06-09",
+    "note": "Headroom below recent main runs (~0.80–0.83). llama3.2:1b on CI via Ollama on host. Ratchet up when accuracy stabilises."
+  }
+}

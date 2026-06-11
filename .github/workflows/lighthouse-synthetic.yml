@@ -16,6 +16,9 @@ on:
 jobs:
   monitor:
     runs-on: ubuntu-latest
+    concurrency:
+      group: dashboard-data-main
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
@@ -52,6 +55,10 @@ jobs:
         run: npm run test:lighthouse
         continue-on-error: true
 
+      - name: Sync dashboard base
+        if: always()
+        run: git pull --rebase origin main
+
       - name: Append trend data
         run: npm run trend:lighthouse
 
@@ -75,5 +82,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/dashboard/lighthouse-trend.json
-          git diff --cached --quiet || git commit -m "chore: lighthouse synthetic data [skip ci]"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: lighthouse synthetic data [skip ci]"
+            git push origin HEAD:main
+          fi

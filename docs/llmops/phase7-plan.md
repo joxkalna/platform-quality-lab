@@ -199,8 +199,8 @@ Upload as CI artifact. Append to trend file for dashboard (same pattern as k6).
 ## TODOs
 
 - [x] ~~**Investigate throughput -24% regression**~~ — resolved by re-baselining after Phase 6. Throughput drop was expected due to Service C + Ollama cluster workload.
-- [ ] **Accuracy drift detection** — after ~10+ main runs (accumulating during Phase 9), add Slack alert when accuracy drops >10% vs rolling average. Blocked until enough trend data exists.
-- [ ] **MR 3 — Evaluation pipeline + dashboard integration** — trend extraction, accuracy trend chart, Slack alerts, baseline ratchet. Deferred until after Phase 9 (need 10+ main runs for meaningful trends).
+- [x] **Accuracy drift detection** — Slack alert when accuracy drops >10% vs 7-day rolling average (`scripts/llmops/detect-accuracy-drift.ts`, main only).
+- [x] **MR 3 — Evaluation pipeline + dashboard integration** — trend extraction, accuracy trend chart, baseline ratchet (`tests/llmops/baseline.json`), Slack alerts on regression and drift.
 - [ ] **CI: Path-based conditional jobs** — add `paths` filters to the fast parallel jobs only (lint, typecheck, validate-k8s) so they skip on docs-only changes. The `deploy-and-test` job always runs regardless of paths — it produces trend data for the dashboard (k6, chaos, LLMOps) and gaps in historical data are worse than ~8 min of CI time on a README edit. Pact also always runs (contract verification is never safe to skip).
 - [ ] **CI: Benchmark npm cache vs fresh install** — test whether `npm ci` on GitHub runners (fast network) is faster than the cache save/restore overhead. If so, remove the cache step entirely and simplify the install job.
 - [ ] **CI: xSmarter artifact/cache scoping** — not all downstream jobs need all `node_modules`. Scope cache restores per-job (e.g. `validate-k8s` only needs root modules, not service modules). Reduces restore time.

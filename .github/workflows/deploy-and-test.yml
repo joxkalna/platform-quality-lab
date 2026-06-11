@@ -20,6 +20,9 @@ on:
 jobs:
   deploy-and-test:
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.ref == 'refs/heads/main' && 'dashboard-data-main' || github.run_id }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -229,6 +232,16 @@ jobs:
           mkdir -p tests/llmops/results
           SERVICE_C_URL=http://localhost:3002 npm run test:llmops
 
+      - name: Run LLMOps regression analysis
+        continue-on-error: true
+        run: npm run test:llmops:analyze
+
+      - name: Slack — notify on LLMOps accuracy regression
+        continue-on-error: true
+        run: npm run test:llmops:notify
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
       # --- LLMOps consistency (stability gate) ---
 
       - name: Run LLMOps consistency tests
@@ -350,6 +363,10 @@ jobs:
       # Git is the database — one commit per main pipeline run.
       # [skip ci] prevents infinite loop.
 
+      - name: Sync dashboard base
+        if: always() && github.ref == 'refs/heads/main'
+        run: git pull --rebase origin main
+
       - name: Extract performance trend
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
@@ -364,6 +381,13 @@ jobs:
         if: always()
         continue-on-error: true
         run: npm run trend:llmops
+
+      - name: Detect LLMOps accuracy drift
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: npm run test:llmops:drift
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - name: Extract consistency trend
         if: always()
@@ -382,8 +406,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/dashboard/trend.json docs/dashboard/chaos-trend.json docs/dashboard/llmops-trend.json docs/dashboard/consistency-trend.json docs/dashboard/lighthouse-trend.json
-          git diff --cached --quiet || git commit -m "chore: update dashboard data [skip ci]"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update dashboard data [skip ci]"
+            git push origin HEAD:main
+          fi
 
       # --- Teardown ---
 

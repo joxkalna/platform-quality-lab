@@ -36,7 +36,7 @@ UI: `services/ui/` — Vite + React + Tailwind. API client layer in `src/api/` (
 ## Phased Plan
 - **Phase 1–5** ✅ Scaffold, deploy, CI, chaos, guardrails
 - **Phase 6** ✅ AI service, Pact evolution, k6 load testing, Slack notifications, dashboard
-- **Phase 7** ✅ LLMOps — golden sets, accuracy thresholds, consistency tests (MR 3 deferred: dashboard trends after 10+ main runs)
+- **Phase 7** ✅ LLMOps — golden sets, accuracy thresholds, consistency tests, baseline ratchet, regression + drift Slack alerts
 - **Phase 8** ✅ API collections (Bruno — exploratory testing, environment management)
 - **Phase 9** ✅ UI + frontend quality
 - **Phase 10** 🔜 Production deployment (Raspberry Pi, k3s, Cloudflare Tunnel)
@@ -63,6 +63,8 @@ UI: `services/ui/` — Vite + React + Tailwind. API client layer in `src/api/` (
 - `npm run test:load:analyze` — compare against baseline
 - `npm run validate:manifests` — K8s manifest policy
 - `npm run lint` — ESLint + resilience rules
+- `npm run test:llmops:analyze` — compare golden set accuracy vs baseline (non-blocking)
+- `npm run test:llmops:drift` — detect accuracy drift vs 7-day rolling average (main)
 
 ### Chaos
 - `./scripts/chaos/pod-kill.sh <service>`
