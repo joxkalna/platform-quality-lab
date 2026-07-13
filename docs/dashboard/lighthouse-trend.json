@@ -1678,5 +1678,17 @@
     "tbt_status": "good",
     "fcp_ms": 5336,
     "classify_inp_ms": 0
+  },
+  {
+    "date": "2026-07-13",
+    "branch": "main",
+    "lcp_ms": 9032,
+    "lcp_status": "poor",
+    "cls": 0,
+    "cls_status": "good",
+    "tbt_ms": 5,
+    "tbt_status": "good",
+    "fcp_ms": 5424,
+    "classify_inp_ms": 0
   }
 ]
