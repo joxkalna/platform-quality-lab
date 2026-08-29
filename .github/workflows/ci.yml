@@ -130,7 +130,7 @@ jobs:
             tests/load/node_modules
           key: deps-${{ hashFiles('**/package-lock.json') }}
 
-      - uses: yokawasa/action-setup-kube-tools@v0.13.5
+      - uses: yokawasa/action-setup-kube-tools@v0.14.0
         with:
           kubeconform: ${{ env.KUBECONFORM_VERSION }}
 
