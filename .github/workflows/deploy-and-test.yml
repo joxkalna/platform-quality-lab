@@ -24,7 +24,7 @@ jobs:
       group: ${{ github.ref == 'refs/heads/main' && 'dashboard-data-main' || github.run_id }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
