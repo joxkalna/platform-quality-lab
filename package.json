@@ -1,6 +1,9 @@
 {
   "name": "platform-quality-lab",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npx concurrently \"npm run dev:b\" \"npm run dev:a\" \"npm run dev:c\" \"npm run dev:ui\" \"npm run open\"",
     "dev:a": "cd services/service-a && SERVICE_B_URL=http://localhost:3001 SERVICE_C_URL=http://localhost:3002 npx ts-node src/server.ts",
@@ -16,6 +19,7 @@
     "typecheck:a": "cd services/service-a && npx --no-install tsc --noEmit",
     "typecheck:b": "cd services/service-b && npx --no-install tsc --noEmit",
     "typecheck:c": "cd services/service-c && npx --no-install tsc --noEmit",
+    "typecheck:packages": "npm --workspace @platform-quality-lab/platform-quality-utils run typecheck",
     "test:integration": "vitest run --config tests/integration/vitest.config.mts",
     "test:infra": "bats tests/infrastructure/",
     "test:pact:verify": "vitest run --config tests/pact/vitest.pact.config.mts",
@@ -43,6 +47,7 @@
     "trend:consistency": "npx tsx tests/llmops/scripts/extract-consistency-trend.ts",
     "trend:lighthouse": "npx tsx scripts/lighthouse/append-trend.ts",
     "test:lighthouse": "vitest run --config tests/lighthouse/vitest.config.mts",
+    "test:packages": "npm --workspace @platform-quality-lab/platform-quality-utils test",
     "test:e2e": "npx playwright test --config tests/e2e/playwright.config.ts",
     "test:e2e:ui": "npx playwright test --config tests/e2e/playwright.config.ts --ui",
     "test:component": "cd services/ui && npm test",
